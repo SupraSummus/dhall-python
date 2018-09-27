@@ -1,9 +1,9 @@
 hex: /[0-9A-Fa-f]+/
 dec: /0|([1-9][0-9]*)/
 
-?string: "%x" hex ("." hex)* -> numeric_sequence
+string : "%x" hex ("." hex)* -> numeric_sequence
        | "%d" dec ("." dec)* -> numeric_sequence
-       | "\"" /[^"]+/ "\""
+       | "\"" /[^"]+/ "\""   -> just_a_string
        | "\"\""              -> empty_string
 range: "%x" hex "-" hex
      | "%d" dec "-" dec
