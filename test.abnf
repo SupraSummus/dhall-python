@@ -1,0 +1,14 @@
+block-comment-chunk =
+      block-comment aaa bbb
+    / %x20-10FFFF
+    / %d97.98.99
+    / tab
+    / "napis"
+    / end-of-line
+    / ""
+    / test
+    / *aaa
+    / 8*aaa
+    / 8*7aaa
+    / *9aaa
+    / 10aa

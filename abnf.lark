@@ -1,0 +1,34 @@
+hex: /[0-9A-Fa-f]+/
+dec: /0|([1-9][0-9]*)/
+
+?string: "%x" hex ("." hex)* -> numeric_sequence
+       | "%d" dec ("." dec)* -> numeric_sequence
+       | "\"" /[^"]+/ "\""
+       | "\"\""              -> empty_string
+range: "%x" hex "-" hex
+     | "%d" dec "-" dec
+
+identifier: /[a-zA-Z][0-9a-zA-Z\-_]*/
+_WS: /([ \n\t]|(;[^\n]*\n))+/
+
+unbound_repetition_spec: dec? "*"
+bound_repetition_spec:   dec? "*" dec   -> repetition_high_bound
+                     |   dec            -> repetition_exact
+
+?definition0: definition1 (_WS? "/" _WS? definition1)+  -> alternative
+            | definition1
+?definition1: definition2 (_WS definition2)+            -> sequence
+            | definition2
+?definition2: bound_repetition_spec definition3         -> bound_repetition
+            | unbound_repetition_spec definition3       -> unbound_repetition
+            | definition3
+?definition3: "(" _WS? definition0 _WS? ")"             // bracket grouping
+            | "[" _WS? definition0 _WS? "]"             -> optional
+            | range
+            | string                                    -> string
+            | identifier                                -> identifier
+
+rule: identifier _WS? "=" _WS? definition0              -> rule
+    | identifier _WS? "=/" _WS? definition0             -> rule_alternative
+
+start: _WS? rule (_WS rule)* _WS?

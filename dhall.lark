@@ -1,0 +1,174 @@
+end_of_line: ("\n" | "\r\n")
+tab: "\t"
+block_comment: ("{-" block_comment_continue)
+block_comment_chunk: (block_comment | /[\ -\􏿿]/ | tab | end_of_line)
+block_comment_continue: ("-}" | (block_comment_chunk block_comment_continue))
+not_end_of_line: (/[\ -\􏿿]/ | tab)
+line_comment: ("--" (not_end_of_line*) end_of_line)
+whitespace_chunk: (" " | tab | end_of_line | line_comment | block_comment)
+whitespace: (whitespace_chunk*)
+alpha: (/[A-Z]/ | /[a-z]/)
+digit: /[0-9]/
+hexdig: (digit | "A" | "B" | "C" | "D" | "E" | "F")
+simple_label: ((alpha | "_") ((alpha | digit | "-" | "/" | "_")*))
+quoted_label: ((alpha | digit | "-" | "/" | "_" | ":" | ".") (alpha | digit | "-" | "/" | "_" | ":" | ".")*)
+label: ((("`" quoted_label "`") | simple_label) whitespace)
+double_quote_chunk: (("${" expression "}") | ("\\" ("\"" | "$" | "\\" | "/" | "b" | "f" | "n" | "r" | "t" | ("u" (hexdig hexdig hexdig hexdig)))) | /[\ -\!]/ | /[\#-\[]/ | /[\]-\􏿿]/)
+double_quote_literal: ("\"" (double_quote_chunk*) "\"")
+single_quote_continue: (("'''" single_quote_continue) | ("${" expression "}" single_quote_continue) | ("''${" single_quote_continue) | "''" | (/[\ -\􏿿]/ single_quote_continue) | (tab single_quote_continue) | (end_of_line single_quote_continue))
+single_quote_literal: ("''" single_quote_continue)
+text_literal: ((double_quote_literal | single_quote_literal) whitespace)
+if_raw: "if"
+then_raw: "then"
+else_raw: "else"
+let_raw: "let"
+in_raw: "in"
+as_raw: "as"
+using_raw: "using"
+merge_raw: "merge"
+constructors_raw: "constructors"
+natural_fold_raw: "Natural/fold"
+natural_build_raw: "Natural/build"
+natural_iszero_raw: "Natural/isZero"
+natural_even_raw: "Natural/even"
+natural_odd_raw: "Natural/odd"
+natural_tointeger_raw: "Natural/toInteger"
+natural_show_raw: "Natural/show"
+integer_show_raw: "Integer/show"
+double_show_raw: "Double/show"
+list_build_raw: "List/build"
+list_fold_raw: "List/fold"
+list_length_raw: "List/length"
+list_head_raw: "List/head"
+list_last_raw: "List/last"
+list_indexed_raw: "List/indexed"
+list_reverse_raw: "List/reverse"
+optional_fold_raw: "Optional/fold"
+optional_build_raw: "Optional/build"
+bool_raw: "Bool"
+optional_raw: "Optional"
+natural_raw: "Natural"
+integer_raw: "Integer"
+double_raw: "Double"
+text_raw: "Text"
+list_raw: "List"
+true_raw: "True"
+false_raw: "False"
+type_raw: "Type"
+kind_raw: "Kind"
+reserved_raw: (if_raw | then_raw | else_raw | let_raw | in_raw | as_raw | using_raw | merge_raw | constructors_raw | bool_raw | optional_raw | natural_raw | integer_raw | double_raw | text_raw | list_raw | true_raw | false_raw | type_raw | kind_raw)
+reserved_namespaced_raw: (natural_fold_raw | natural_build_raw | natural_iszero_raw | natural_even_raw | natural_odd_raw | natural_tointeger_raw | natural_show_raw | integer_show_raw | double_show_raw | list_build_raw | list_fold_raw | list_length_raw | list_head_raw | list_last_raw | list_indexed_raw | list_reverse_raw | optional_fold_raw | optional_build_raw)
+reserved: (reserved_raw whitespace)
+reserved_namespaced: (reserved_namespaced_raw whitespace)
+if: (if_raw whitespace)
+then: (then_raw whitespace)
+else: (else_raw whitespace)
+let: (let_raw whitespace)
+in: (in_raw whitespace)
+as: (as_raw whitespace)
+using: (using_raw whitespace)
+merge: (merge_raw whitespace)
+constructors: (constructors_raw whitespace)
+optional: (optional_raw whitespace)
+text: (text_raw whitespace)
+list: (list_raw whitespace)
+equal: ("=" whitespace)
+or: ("||" whitespace)
+plus: ("+" whitespace)
+text_append: ("++" whitespace)
+list_append: ("#" whitespace)
+and: ("&&" whitespace)
+times: ("*" whitespace)
+double_equal: ("==" whitespace)
+not_equal: ("!=" whitespace)
+dot: ("." whitespace)
+open_brace: ("{" whitespace)
+close_brace: ("}" whitespace)
+open_bracket: ("[" whitespace)
+close_bracket: ("]" whitespace)
+open_angle: ("<" whitespace)
+close_angle: (">" whitespace)
+bar: ("|" whitespace)
+comma: ("," whitespace)
+open_parens: ("(" whitespace)
+close_parens: (")" whitespace)
+colon: (":" whitespace)
+at: ("@" whitespace)
+combine: (("\u2227" | "/\\") whitespace)
+combine_types: (("\u2a53" | "//\\\\") whitespace)
+prefer: (("\u2afd" | "//") whitespace)
+lambda: (("\u03bb" | "\\") whitespace)
+forall: (("\u2200" | "forall") whitespace)
+arrow: (("\u2192" | "->") whitespace)
+exponent: ("e" [("+" | "-")] (digit digit*))
+double_literal: (["-"] (digit digit*) (("." (digit digit*) [exponent]) | exponent) whitespace)
+natural_raw_literal: (digit digit*)
+integer_literal: (["-"] natural_raw_literal whitespace)
+natural_literal: ("+" natural_raw_literal whitespace)
+identifier: (label [(at natural_raw_literal)] whitespace)
+identifier_reserved_prefix: (reserved_raw ((alpha | digit | "-" | "/" | "_") (alpha | digit | "-" | "/" | "_")*) whitespace [(at natural_raw_literal)] whitespace)
+identifier_reserved_namespaced_prefix: (reserved_namespaced_raw ((alpha | digit | "-" | "/" | "_") (alpha | digit | "-" | "/" | "_")*) whitespace [(at natural_raw_literal)] whitespace)
+head_path_character: (/[\!-\']/ | /[\*-\+]/ | /[\--\.]/ | /[0-\;]/ | "=" | /[\?-Z]/ | /[\^-z]/ | "|" | "~")
+path_character: (head_path_character | "\\" | "/")
+file_raw: (("/" head_path_character (path_character*)) | ("./" (path_character*)) | ("../" (path_character*)) | ("~/" (path_character*)))
+file: (file_raw whitespace)
+scheme: ("http" ["s"])
+http_raw: (scheme "://" authority path_abempty [("?" query)] [("#" fragment)])
+authority: ([(userinfo "@")] host [(":" port)])
+userinfo: ((unreserved | pct_encoded | sub_delims | ":")*)
+host: (ip_literal | ipv4address | reg_name)
+port: (digit*)
+ip_literal: ("[" (ipv6address | ipvfuture) "]")
+ipvfuture: ("v" (hexdig hexdig*) "." ((unreserved | sub_delims | ":") (unreserved | sub_delims | ":")*))
+ipv6address: ((((h16 ":") (h16 ":") (h16 ":") (h16 ":") (h16 ":") (h16 ":")) ls32) | ("::" ((h16 ":") (h16 ":") (h16 ":") (h16 ":") (h16 ":")) ls32) | ([h16] "::" ((h16 ":") (h16 ":") (h16 ":") (h16 ":")) ls32) | ([(([(h16 ":")]) h16)] "::" ((h16 ":") (h16 ":") (h16 ":")) ls32) | ([(([(h16 ":")] [(h16 ":")]) h16)] "::" ((h16 ":") (h16 ":")) ls32) | ([(([(h16 ":")] [(h16 ":")] [(h16 ":")]) h16)] "::" h16 ":" ls32) | ([(([(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")]) h16)] "::" ls32) | ([(([(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")]) h16)] "::" h16) | ([(([(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")] [(h16 ":")]) h16)] "::"))
+h16: (hexdig [hexdig] [hexdig] [hexdig])
+ls32: ((h16 ":" h16) | ipv4address)
+ipv4address: (dec_octet "." dec_octet "." dec_octet "." dec_octet)
+dec_octet: (digit | (/[1-9]/ digit) | ("1" (digit digit)) | ("2" /[0-4]/ digit) | ("25" /[0-5]/))
+reg_name: ((unreserved | pct_encoded | sub_delims)*)
+path_abempty: (("/" segment)*)
+segment: (pchar*)
+pchar: (unreserved | pct_encoded | sub_delims | ":" | "@")
+query: ((pchar | "/" | "?")*)
+fragment: ((pchar | "/" | "?")*)
+pct_encoded: ("%" hexdig hexdig)
+unreserved: (alpha | digit | "-" | "." | "_" | "~")
+sub_delims: ("!" | "$" | "&" | "'" | "(" | ")" | "*" | "+" | "," | ";" | "=")
+http: (http_raw whitespace [(using path_hashed)])
+env: ("env:" (bash_environment_variable | ("\"" posix_environment_variable "\"")) whitespace)
+bash_environment_variable: ((alpha | "_") ((alpha | digit | "_")*))
+posix_environment_variable: (posix_environment_variable_character posix_environment_variable_character*)
+posix_environment_variable_character: (("\\" ("\"" | "\\" | "a" | "b" | "f" | "n" | "r" | "t" | "v")) | /[\ -\!]/ | /[\#-\<]/ | /[\>-\[]/ | /[\]-\~]/)
+path_type: (file | http | env)
+hash: ("sha256:" (hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig hexdig) whitespace)
+path_hashed: (path_type [hash])
+import: (path_hashed [(as text)])
+expression: ((lambda open_parens label colon expression close_parens arrow expression) | (if expression then expression else expression) | (let label [(colon expression)] equal expression in expression) | (forall open_parens label colon expression close_parens arrow expression) | (operator_expression arrow expression) | annotated_expression)
+annotated_expression: ((merge selector_expression selector_expression [(colon application_expression)]) | (open_bracket (empty_collection | non_empty_optional)) | (operator_expression ((colon expression) | "")))
+empty_collection: (close_bracket colon (list | optional) selector_expression)
+non_empty_optional: (expression close_bracket colon optional selector_expression)
+operator_expression: or_expression
+or_expression: (plus_expression ((or plus_expression)*))
+plus_expression: (text_append_expression ((plus text_append_expression)*))
+text_append_expression: (list_append_expression ((text_append list_append_expression)*))
+list_append_expression: (and_expression ((list_append and_expression)*))
+and_expression: (combine_expression ((and combine_expression)*))
+combine_expression: (prefer_expression ((combine prefer_expression)*))
+prefer_expression: (combine_types_expression ((prefer combine_types_expression)*))
+combine_types_expression: (times_expression ((combine_types times_expression)*))
+times_expression: (equal_expression ((times equal_expression)*))
+equal_expression: (not_equal_expression ((double_equal not_equal_expression)*))
+not_equal_expression: (application_expression ((not_equal application_expression)*))
+application_expression: ([constructors] (selector_expression selector_expression*))
+selector_expression: (primitive_expression ((dot (label | labels))*))
+primitive_expression: (double_literal | natural_literal | integer_literal | text_literal | (open_brace record_type_or_literal close_brace) | (open_angle union_type_or_literal close_angle) | non_empty_list_literal | import | identifier_reserved_namespaced_prefix | reserved_namespaced | identifier_reserved_prefix | reserved | identifier | (open_parens expression close_parens))
+labels: (open_brace ((label ((comma label)*)) | "") close_brace)
+record_type_or_literal: (equal | non_empty_record_type_or_literal | "")
+non_empty_record_type_or_literal: (label (non_empty_record_literal | non_empty_record_type))
+non_empty_record_type: (colon expression ((comma label colon expression)*))
+non_empty_record_literal: (equal expression ((comma label equal expression)*))
+union_type_or_literal: (non_empty_union_type_or_literal | "")
+non_empty_union_type_or_literal: (label ((equal expression ((bar label colon expression)*)) | (colon expression ((bar non_empty_union_type_or_literal) | ""))))
+non_empty_list_literal: (open_bracket expression ((comma expression)*) close_bracket)
+complete_expression: (whitespace expression)
+
