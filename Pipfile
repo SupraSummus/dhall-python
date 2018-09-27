@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 lark-parser = "*"
+"flake8" = "*"
 
 [dev-packages]
 
