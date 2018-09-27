@@ -76,6 +76,10 @@
 ;
 ; In all other cases you can assume that you do not need to backtrack unless
 ; there is a comment explicitly asking you to backtrack
+;
+; Whenever associativity is not specified you should assume left-associativity.
+; For example, function application is left-associative and all operators are
+; left-associative.
 
 ; NOTE: There are many line endings in the wild
 ;
@@ -114,6 +118,8 @@ whitespace-chunk =
 
 whitespace = *whitespace-chunk
 
+nonempty-whitespace = 1*whitespace-chunk
+
 ; Uppercase or lowercase ASCII letter
 ALPHA = %x41-5A / %x61-7A
 
@@ -124,7 +130,7 @@ HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
 
 simple-label = (ALPHA / "_") *(ALPHA / DIGIT / "-" / "/" / "_")
 
-quoted-label = 1*(ALPHA / DIGIT / "-" / "/" / "_" / ":" / ".")
+quoted-label = 1*(ALPHA / DIGIT / "-" / "/" / "_" / ":" / "." / "$")
 
 ; NOTE: Dhall does not support Unicode labels, mainly to minimize the potential
 ; for code obfuscation
@@ -202,7 +208,7 @@ single-quote-continue =
       ; Escape two single quotes (i.e. replace this sequence with "''")
       "'''"               single-quote-continue
       ; Interpolation
-    / "${" expression "}" single-quote-continue
+    / "${" complete-expression "}" single-quote-continue
       ; Escape interpolation (i.e. replace this sequence with "${")
     / "''${"              single-quote-continue
     / "''"                                       ; End of text literal
@@ -228,6 +234,8 @@ in-raw                = %x69.6e
 as-raw                = %x61.73
 using-raw             = %x75.73.69.6e.67
 merge-raw             = %x6d.65.72.67.65
+missing-raw           = %x6d.69.73.73.69.6e.67
+Some-raw              = %x53.6f.6d.65
 constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
 Natural-fold-raw      = %x4e.61.74.75.72.61.6c.2f.66.6f.6c.64
 Natural-build-raw     = %x4e.61.74.75.72.61.6c.2f.62.75.69.6c.64
@@ -236,6 +244,7 @@ Natural-even-raw      = %x4e.61.74.75.72.61.6c.2f.65.76.65.6e
 Natural-odd-raw       = %x4e.61.74.75.72.61.6c.2f.6f.64.64
 Natural-toInteger-raw = %x4e.61.74.75.72.61.6c.2f.74.6f.49.6e.74.65.67.65.72
 Natural-show-raw      = %x4e.61.74.75.72.61.6c.2f.73.68.6f.77
+Integer-toDouble-raw  = %x49.6e.74.65.67.65.72.2f.74.6f.44.6f.75.62.6c.65
 Integer-show-raw      = %x49.6e.74.65.67.65.72.2f.73.68.6f.77
 Double-show-raw       = %x44.6f.75.62.6c.65.2f.73.68.6f.77
 List-build-raw        = %x4c.69.73.74.2f.62.75.69.6c.64
@@ -249,6 +258,7 @@ Optional-fold-raw     = %x4f.70.74.69.6f.6e.61.6c.2f.66.6f.6c.64
 Optional-build-raw    = %x4f.70.74.69.6f.6e.61.6c.2f.62.75.69.6c.64
 Bool-raw              = %x42.6f.6f.6c
 Optional-raw          = %x4f.70.74.69.6f.6e.61.6c
+None-raw              = %x4e.6f.6e.65
 Natural-raw           = %x4e.61.74.75.72.61.6c
 Integer-raw           = %x49.6e.74.65.67.65.72
 Double-raw            = %x44.6f.75.62.6c.65
@@ -260,17 +270,9 @@ Type-raw              = %x54.79.70.65
 Kind-raw              = %x4b.69.6e.64
 
 reserved-raw =
-    if-raw
-  / then-raw
-  / else-raw
-  / let-raw
-  / in-raw
-  / as-raw
-  / using-raw
-  / merge-raw
-  / constructors-raw
-  / Bool-raw
+    Bool-raw
   / Optional-raw
+  / None-raw
   / Natural-raw
   / Integer-raw
   / Double-raw
@@ -289,6 +291,7 @@ reserved-namespaced-raw =
   / Natural-odd-raw
   / Natural-toInteger-raw
   / Natural-show-raw
+  / Integer-toDouble-raw
   / Integer-show-raw
   / Double-show-raw
   / List-build-raw
@@ -305,15 +308,17 @@ reserved            = reserved-raw            whitespace
 reserved-namespaced = reserved-namespaced-raw whitespace
 
 ; Whitespaced rules for reserved words, to be used when matching expressions
-if           = if-raw           whitespace
-then         = then-raw         whitespace
-else         = else-raw         whitespace
-let          = let-raw          whitespace
-in           = in-raw           whitespace
-as           = as-raw           whitespace
-using        = using-raw        whitespace
-merge        = merge-raw        whitespace
-constructors = constructors-raw whitespace
+if           = if-raw           nonempty-whitespace
+then         = then-raw         nonempty-whitespace
+else         = else-raw         nonempty-whitespace
+let          = let-raw          nonempty-whitespace
+in           = in-raw           nonempty-whitespace
+as           = as-raw           nonempty-whitespace
+using        = using-raw        nonempty-whitespace
+merge        = merge-raw        nonempty-whitespace
+constructors = constructors-raw nonempty-whitespace
+Some         = Some-raw         nonempty-whitespace
+
 Optional     = Optional-raw     whitespace
 Text         = Text-raw         whitespace
 List         = List-raw         whitespace
@@ -340,6 +345,7 @@ open-parens   = "("  whitespace
 close-parens  = ")"  whitespace
 colon         = ":"  whitespace
 at            = "@"  whitespace
+import-alt    = "?"  whitespace
 
 combine       = ( %x2227 / "/\"                ) whitespace
 combine-types = ( %x2A53 / "//\\"              ) whitespace
@@ -350,29 +356,33 @@ arrow         = ( %x2192 / "->"                ) whitespace
 
 exponent = "e" [ "+" / "-" ] 1*DIGIT
 
-double-literal = [ "-" ] 1*DIGIT ( "." 1*DIGIT [ exponent ] / exponent) whitespace
+double-literal = [ "+" / "-" ] 1*DIGIT ( "." 1*DIGIT [ exponent ] / exponent) whitespace
 
-natural-raw-literal = 1*DIGIT
+natural-raw = 1*DIGIT
 
-integer-literal = [ "-" ] natural-raw-literal whitespace
+integer-literal = ( "+" / "-" ) natural-raw whitespace
 
-natural-literal = "+" natural-raw-literal whitespace
+natural-literal = natural-raw whitespace
 
-identifier = label [ at natural-raw-literal ] whitespace
+identifier = label [ at natural-raw ] whitespace
 
 identifier-reserved-prefix =
-    reserved-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw-literal ] whitespace
+    reserved-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw ] whitespace
 
 identifier-reserved-namespaced-prefix =
-    reserved-namespaced-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw-literal ] whitespace
+    reserved-namespaced-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw ] whitespace
+
+missing = missing-raw whitespace
 
 ; Printable characters other than " ()[]{}<>/\,"
 ;
 ; Excluding those characters ensures that paths don't have to end with trailing
 ; whitespace most of the time
-head-path-character =
+path-character =
         ; %x20 = " "
-      %x21-27
+      %x21-22
+        ; %x23 = "#"
+    / %x24-27
         ; %x28 = "("
         ; %x29 = ")"
     / %x2A-2B
@@ -383,7 +393,8 @@ head-path-character =
         ; %x3C = "<"
     / %x3D
         ; %x3E = ">"
-    / %x3F-5A
+        ; %x3F = "?"
+    / %x40-5A
         ; %x5B = "["
         ; %x5C = "\"
         ; %x5D = "]"
@@ -393,28 +404,33 @@ head-path-character =
         ; %x7D = "}"
     / %x7E
 
-path-character = head-path-character / "\" / "/"
+path-component = "/" 1*path-character
 
-; The first character of an absolute path cannot be a forward slash or
-; back-slash since that conflicts with the "/\" and "//" operators
-file-raw =
-      ; NOTE: Backtrack if parsing this first alternative fails
-      ;
-      ; This is because the second character might be "/" or "\", indicating
-      ; that this should have been parsed as an operator instead of an absolute
-      ; path
-      "/" head-path-character *path-character
-    / "./"  *path-character
-    / "../" *path-character
-    / "~/"  *path-character
+directory = *path-component
 
-file = file-raw whitespace
+file = path-component
 
-; `http[s]` URI grammar based on RFC7230 and RFC 3986
+local-raw =
+      ".." directory file  ; Relative path
+    / "."  directory file  ; Relative path
+    / "~"  directory file  ; Home-anchored path
+    ; NOTE: Backtrack if parsing this alternative fails
+    ;
+    ; This is because the first character of this alternative will be "/", but
+    ; if the second character is "/" or "\" then this should have been parsed
+    ; as an operator instead of a path
+    / directory file  ; Absolute path
+
+local = local-raw whitespace
+
+; `http[s]` URI grammar based on RFC7230 and RFC 3986 with some differences
+; noted below
 
 scheme = %x68.74.74.70 [ %x73 ]  ; "http" [ "s" ]
 
-http-raw = scheme "://" authority path-abempty [ "?" query ] [ "#" fragment ]
+; NOTE: This does not match the official grammar for a URI.  Specifically, this
+; replaces `path-abempty` with `directory file`
+http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
 
 ; NOTE: Backtrack if parsing the optional user info prefix fails
 authority = [ userinfo "@" ] host [ ":" port ]
@@ -455,10 +471,6 @@ dec-octet = DIGIT              ; 0-9
 
 reg-name = *( unreserved / pct-encoded / sub-delims )
 
-path-abempty = *( "/" segment )
-
-segment = *pchar
-
 pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
 
 query = *( pchar / "/" / "?" )
@@ -471,7 +483,9 @@ unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
 
 sub-delims = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="
 
-http = http-raw whitespace [ using path-hashed ]
+http =
+    http-raw whitespace
+    [ using (import-hashed / open-parens import-hashed close-parens) ]
 
 ; Dhall supports unquoted environment variables that are Bash-compliant or
 ; quoted environment variables that are POSIX-compliant
@@ -538,13 +552,16 @@ posix-environment-variable-character =
         ; %x5C = "\"
     / %x5D-7E
 
-path-type = file / http / env
+import-type = missing / local / http / env
 
 hash = %x73.68.61.32.35.36.3a 64HEXDIG whitespace  ; "sha256:XXX...XXX"
 
-path-hashed = path-type [ hash ]
+import-hashed = import-type [ hash ]
 
-import = path-hashed [ as Text ]
+; "http://example.com"
+; "./foo/bar"
+; "env:FOO"
+import = import-hashed [ as Text ]
 
 ; NOTE: Every rule past this point should only reference rules that end with
 ; whitespace.  This ensures consistent handling of whitespace in the absence of
@@ -574,7 +591,7 @@ expression =
 annotated-expression =
     ; "merge e1 e2 : t"
     ; "merge e1 e2"
-      merge selector-expression selector-expression [ colon application-expression ]
+      merge import-expression import-expression [ colon application-expression ]
 
     ; "[]  : List     t"
     ; "[]  : Optional t"
@@ -588,25 +605,32 @@ annotated-expression =
     ; "x : t"
     / operator-expression (colon expression / "")
 
-empty-collection = close-bracket colon (List / Optional) selector-expression
+empty-collection = close-bracket colon (List / Optional) import-expression
 
-non-empty-optional = expression close-bracket colon Optional selector-expression
+non-empty-optional = expression close-bracket colon Optional import-expression
 
-operator-expression = or-expression
+operator-expression = import-alt-expression
 
-or-expression            = plus-expression          *(or            plus-expression         )
-plus-expression          = text-append-expression   *(plus          text-append-expression  )
-text-append-expression   = list-append-expression   *(text-append   list-append-expression  )
-list-append-expression   = and-expression           *(list-append   and-expression          )
-and-expression           = combine-expression       *(and           combine-expression      )
-combine-expression       = prefer-expression        *(combine       prefer-expression       )
-prefer-expression        = combine-types-expression *(prefer        combine-types-expression)
-combine-types-expression = times-expression         *(combine-types times-expression        )
-times-expression         = equal-expression         *(times         equal-expression        )
-equal-expression         = not-equal-expression     *(double-equal  not-equal-expression    )
-not-equal-expression     = application-expression   *(not-equal     application-expression  )
+import-alt-expression    = or-expression            *(import-alt            or-expression)
+or-expression            = plus-expression          *(or                    plus-expression         )
+plus-expression          = text-append-expression   *(plus whitespace-chunk text-append-expression  )
+text-append-expression   = list-append-expression   *(text-append           list-append-expression  )
+list-append-expression   = and-expression           *(list-append           and-expression          )
+and-expression           = combine-expression       *(and                   combine-expression      )
+combine-expression       = prefer-expression        *(combine               prefer-expression       )
+prefer-expression        = combine-types-expression *(prefer                combine-types-expression)
+combine-types-expression = times-expression         *(combine-types         times-expression        )
+times-expression         = equal-expression         *(times                 equal-expression        )
+equal-expression         = not-equal-expression     *(double-equal          not-equal-expression    )
+not-equal-expression     = application-expression   *(not-equal             application-expression  )
 
-application-expression = [ constructors ] 1*selector-expression
+; Import expressions need to be separated by some whitespace, otherwise there
+; would be ambiguity: `./ab` could be interpreted as "import the file `./ab`",
+; or "apply the import `./a` to label `b`"
+application-expression =
+    [ constructors / Some ] import-expression *(whitespace-chunk import-expression)
+
+import-expression = import / selector-expression
 
 ; `record.field` extracts one field of a record
 ;
@@ -633,10 +657,10 @@ primitive-expression =
     ; "2.0"
       double-literal
 
-    ; "+2"
+    ; "2"
     / natural-literal
 
-    ; "2"
+    ; "+2"
     / integer-literal
 
     ; '"ABC"'
@@ -653,11 +677,6 @@ primitive-expression =
     ; "[1, 2, 3]"
     / non-empty-list-literal  ; `annotated-expression` handles empty lists
 
-    ; "http://example.com"
-    ; "./foo/bar"
-    ; "env:FOO"
-    / import
-
     ; "List/foldWith"
     / identifier-reserved-namespaced-prefix
 
@@ -669,7 +688,6 @@ primitive-expression =
     / identifier-reserved-prefix
 
     ; "List"
-    ; "if"
     / reserved
 
     ; "x"

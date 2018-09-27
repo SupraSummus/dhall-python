@@ -66,6 +66,10 @@ class EmptyTerminalsEliminator(lark.Transformer):
 
 
 class MakeLarkGrammar(lark.Transformer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__identifiers = {}  # original -> new
+
     def start(self, args):
         return ''.join(args)
 
@@ -81,7 +85,18 @@ class MakeLarkGrammar(lark.Transformer):
 
     def identifier(self, args):
         assert len(args) == 1
-        return args[0].replace('-', '_').lower()
+        i = args[0]
+        assert not i.startswith('-')
+        assert not i.startswith('_')
+
+        if i in self.__identifiers:
+            return self.__identifiers[i]
+
+        n = i.replace('_', '__').replace('-', '_').lower()
+        while n in self.__identifiers.values():
+            n = n + '_'
+        self.__identifiers[i] = n
+        return n
 
     def string(self, args):
         assert len(args) == 1

@@ -26,7 +26,7 @@ bound_repetition_spec:   dec? "*" dec   -> repetition_high_bound
             | "[" _WS? definition0 _WS? "]"             -> optional
             | range
             | string                                    -> string
-            | identifier                                -> identifier
+            | identifier                                //-> identifier
 
 rule: identifier _WS? "=" _WS? definition0              -> rule
     | identifier _WS? "=/" _WS? definition0             -> rule_alternative
