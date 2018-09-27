@@ -104,14 +104,16 @@ class MakeLarkGrammar(lark.Transformer):
         return '({})'.format(' '.join(r))
 
     def bound_repetition(self, args):
-        """Convert to 'a a a [a] [a]'"""
+        """Convert to 'a a a [a [a [a]]]'"""
         assert len(args) == 2
         assert len(args[0]) == 2
         r = []
         for _ in range(args[0][0]):
             r.append(args[1])
         for _ in range(args[0][1] - args[0][0]):
-            r.append('[{}]'.format(args[1]))
+            r.append('[{}'.format(args[1]))
+        for _ in range(args[0][1] - args[0][0]):
+            r.append(']')
         return '({})'.format(' '.join(r))
 
     def optional(self, args):
