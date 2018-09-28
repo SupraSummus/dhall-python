@@ -1,0 +1,3 @@
+*.pyc
+dhall/_dhall.lark
+dhall/_parser.py

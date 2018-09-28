@@ -432,12 +432,12 @@ scheme = %x68.74.74.70 [ %x73 ]  ; "http" [ "s" ]
 ; replaces `path-abempty` with `directory file`
 http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
 
-; NOTE: Backtrack if parsing the optional user info prefix fails
-authority = [ userinfo "@" ] host [ ":" port ]
+authority = *host_char [":" port [[":" *userinfo_char] "@" *host_char [":" port]]]
 
-userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
+host_char = unreserved / pct-encoded / sub-delims
+userinfo_char = host_char / ":"
 
-host = IP-literal / IPv4address / reg-name
+host = IP-literal / reg-name
 
 port = *DIGIT
 

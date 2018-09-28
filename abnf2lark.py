@@ -3,6 +3,7 @@ import sys
 import re
 import json
 
+
 class ABNFNormalizer(lark.Transformer):
     def hex(self, args):
         assert len(args) == 1
@@ -136,19 +137,21 @@ class MakeLarkGrammar(lark.Transformer):
         return '[{}]'.format(args[0])
 
 
+with open('abnf.lark') as f:
+    abnf_grammar = f.read()
+
+
+abnf_parser = lark.Lark(
+    abnf_grammar,
+    parser='earley',
+    debug=True,
+    lexer='dynamic',
+    ambiguity='explicit',
+)
+
+
 if __name__ == '__main__':
-    with open('abnf.lark') as f:
-        grammar = f.read()
-
-    parser = lark.Lark(
-        grammar,
-        parser='earley',
-        debug=True,
-        lexer='dynamic',
-        ambiguity='explicit',
-    )
-
-    tree = parser.parse(sys.stdin.read())
+    tree = abnf_parser.parse(sys.stdin.read())
     tree = ABNFNormalizer().transform(tree)
     tree = EmptyTerminalsEliminator().transform(tree)
-    print(MakeLarkGrammar().transform(tree))
+    sys.stdout.write(MakeLarkGrammar().transform(tree))

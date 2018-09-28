@@ -3,10 +3,10 @@ abnf2lark.py
 
 This script will convert ABNF grammar description into LARK description.
 
-    cat dhall.abnf | python abnf2lark.py > dhall.lark
+    cat dhall/dhall.abnf | python abnf2lark.py > dhall/grammar.py
 
-dhall.py
-========
+dhall
+=====
 
 Dhall parser - work in progress
 
