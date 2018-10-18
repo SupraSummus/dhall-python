@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-lark-parser = "*"
+lark-parser = {git = "https://github.com/lark-parser/lark.git"}
 "flake8" = "*"
 
 [dev-packages]

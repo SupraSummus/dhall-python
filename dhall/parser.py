@@ -1,7 +1,7 @@
-import lark
-
 from tools import timeit
-from ._parser import Lark_StandAlone
+with timeit("importing parser"):
+    from ._parser import Lark_StandAlone, Discard, Transformer
+from pprint import pprint
 
 
 def _inline_single(self, args):
@@ -20,18 +20,18 @@ def _inline_if_single(wrap=None):
     return f
 
 
-def _const(v):
-    def f(self, args):
-        assert len(args) == 0, args
-        return v
-    return f
+#def _const(v):
+#    def f(self, args):
+#        assert len(args) == 0, args
+#        return v
+#    return f
 
 
 def _discard(self, args):
-    raise lark.Discard()
+    raise Discard()
 
 
-class TreeNormalizer(lark.Transformer):
+class TreeNormalizer(Transformer):
     alpha = _inline_single
     comma = _discard
     colon = _discard
@@ -72,3 +72,12 @@ class TreeNormalizer(lark.Transformer):
 
 with timeit('making parser'):
     parser = Lark_StandAlone()
+
+#with timeit('making dynamic parser'):
+#    dynamic_parser = lark.Lark(
+#        open('dhall/_dhall.lark').read(),
+#        parser='lalr',
+#        lexer="contextual",
+#        start='complete_expression',
+#    )
+#parser = dynamic_parser

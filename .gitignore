@@ -1,3 +1,4 @@
 *.pyc
-dhall/_dhall.lark
+dhall.abnf
+dhall.lark
 dhall/_parser.py

@@ -1,0 +1,18 @@
+--- dhall-lang/standard/dhall.abnf	2018-10-18 18:37:22.361284550 +0200
++++ dhall/dhall.abnf	2018-09-28 17:20:00.577359058 +0200
+@@ -434,12 +432,10 @@
+ ; replaces `path-abempty` with `directory file`
+ http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
+ 
+-; NOTE: Backtrack if parsing the optional user info prefix fails
+-authority = [ userinfo "@" ] host [ ":" port ]
++authority = *host-char [":" port [[":" *userinfo-char] "@" *host-char [":" port]]]
+ 
+-userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
+-
+-host = IP-literal / IPv4address / reg-name
++host-char = unreserved / pct-encoded / sub-delims
++userinfo-char = host-char / ":"
+ 
+ port = *DIGIT
+ 

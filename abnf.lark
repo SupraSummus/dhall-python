@@ -9,7 +9,7 @@ range: "%x" hex "-" hex
      | "%d" dec "-" dec
 
 identifier: /[a-zA-Z][0-9a-zA-Z\-_]*/
-_WS: /([ \n\t]|(;[^\n]*\n))+/
+_WS: /([ \r\n\t]|(;[^\r\n]*?\r\n))+/
 
 unbound_repetition_spec: dec? "*"
 bound_repetition_spec:   dec? "*" dec   -> repetition_high_bound
