@@ -1,7 +1,24 @@
 from tools import timeit
-with timeit("importing parser"):
-    from ._parser import Lark_StandAlone, Discard, Transformer
 from pprint import pprint
+
+DYNAMIC = True
+
+if DYNAMIC:
+    from lark import Discard, Transformer, Lark
+    with timeit('making dynamic parser'):
+        parser = Lark(
+            open('dhall.lark').read(),
+            parser='earley',
+            #lexer="contextual",
+            start='complete_expression',
+            ambiguity='explicit',
+        )
+
+else:
+    with timeit("importing parser"):
+        from ._parser import Lark_StandAlone, Discard, Transformer
+    with timeit('making parser'):
+        parser = Lark_StandAlone()
 
 
 def _inline_single(self, args):
@@ -14,7 +31,7 @@ def _inline_if_single(wrap=None):
         if len(args) == 1:
             return args[0]
         elif wrap is None:
-            assert False, args
+            return args
         else:
             return wrap(args)
     return f
@@ -39,7 +56,10 @@ class TreeNormalizer(Transformer):
     close_brace = _discard
     open_angle = _discard
     close_angle = _discard
+    open_parens = _discard
+    close_parens = _discard
     whitespace = _discard
+    whitespace_chunk = _discard
 
     import_alt_expression = _inline_if_single()
     or_expression = _inline_if_single()
@@ -67,17 +87,4 @@ class TreeNormalizer(Transformer):
     text_literal = _inline_single
 
     def simple_label(self, args):
-        return ''.join(args)
-
-
-with timeit('making parser'):
-    parser = Lark_StandAlone()
-
-#with timeit('making dynamic parser'):
-#    dynamic_parser = lark.Lark(
-#        open('dhall/_dhall.lark').read(),
-#        parser='lalr',
-#        lexer="contextual",
-#        start='complete_expression',
-#    )
-#parser = dynamic_parser
+        return ''.join(str(args))
