@@ -1,7 +1,9 @@
 from tools import timeit
 from pprint import pprint
 
-DYNAMIC = True
+import os
+
+DYNAMIC = bool(os.environ.get('DYNAMIC'))
 
 if DYNAMIC:
     from lark import Discard, Transformer, Lark

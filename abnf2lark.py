@@ -66,7 +66,7 @@ class EmptyTerminalsEliminator(lark.Transformer):
             return lark.Tree('alternative', args)
 
 
-class MakeLarkGrammar(lark.Transformer):
+class LarkGrammarBuilder(lark.Transformer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__identifiers = {}  # original -> new
@@ -154,4 +154,4 @@ if __name__ == '__main__':
     tree = abnf_parser.parse(sys.stdin.read())
     tree = ABNFNormalizer().transform(tree)
     tree = EmptyTerminalsEliminator().transform(tree)
-    sys.stdout.write(MakeLarkGrammar().transform(tree))
+    sys.stdout.write(LarkGrammarBuilder().transform(tree))

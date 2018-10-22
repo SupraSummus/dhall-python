@@ -1,3 +1,5 @@
+.PHONY: all clean abnf_patch test
+
 all: dhall/_parser.py
 
 clean:
@@ -11,3 +13,10 @@ dhall.lark: dhall.abnf
 
 dhall.abnf: dhall-lang/standard/dhall.abnf dhall.abnf.patch
 	patch --binary -o $@ $^
+
+abnf_patch:
+	diff -u dhall-lang/standard/dhall.abnf dhall.abnf > dhall.abnf.patch
+
+test: all
+	cat dhall-haskell/tests/parser/annotations.dhall | pipenv run python dhall.py
+	cat dhall-haskell/tests/parser/builtins.dhall | pipenv run python dhall.py
