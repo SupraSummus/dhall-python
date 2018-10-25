@@ -16,28 +16,28 @@ identifier: /[a-zA-Z][0-9a-zA-Z\-_]*/
 _WS_CHUNK_NOT_EOL: /[ \t]/
 _WS_CHUNK_EOL: /[\r\n]|(;[^\r\n]*?\r\n)/
 _WS_CHUNK: _WS_CHUNK_NOT_EOL | _WS_CHUNK_EOL
-_OWS: _OWS _WS_CHUNK |
-_WS: _OWS _WS_CHUNK
+_ows: _ows _WS_CHUNK |
+_ws: _ows _WS_CHUNK
 
 unbound_repetition_spec: dec? "*"
 bound_repetition_spec:   dec? "*" dec   -> repetition_high_bound
                      |   dec            -> repetition_exact
 
-definition0: definition0 _OWS "/" _OWS definition1   -> alternative
+definition0 : definition0 _ows "/" _ows definition1   -> alternative
             | definition1
-definition1: definition1 _WS definition2               -> sequence
+definition1 : definition1 _ws definition2               -> sequence
             | definition2
-definition2: bound_repetition_spec definition3         -> bound_repetition
+definition2 : bound_repetition_spec definition3         -> bound_repetition
             | unbound_repetition_spec definition3       -> unbound_repetition
             | definition3
-definition3: "(" _OWS definition0 _OWS ")"             // bracket grouping
-            | "[" _OWS definition0 _OWS "]"             -> optional
+definition3 : "(" _ows definition0 _ows ")"             // bracket grouping
+            | "[" _ows definition0 _ows "]"             -> optional
             | range
             | string                                    -> string
             | identifier                                //-> identifier
 
-rule: identifier _OWS "=" _OWS definition0              -> rule
-    | identifier _OWS "=/" _OWS definition0             -> rule_alternative
+rule: identifier _ows "=" _ows definition0              -> rule
+    | identifier _ows "=/" _ows definition0             -> rule_alternative
 
 rules: rules _WS rule | rule
-start: _OWS rules _OWS
+start: _ows rules _ows
