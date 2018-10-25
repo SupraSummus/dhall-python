@@ -3,6 +3,8 @@ import sys
 import re
 import json
 
+from tools import timeit
+
 
 class ABNFNormalizer(lark.Transformer):
     def hex(self, args):
@@ -143,15 +145,21 @@ with open('abnf.lark') as f:
 
 abnf_parser = lark.Lark(
     abnf_grammar,
-    parser='earley',
+    parser='lalr',
+    #lexer='dynamic',
+    #ambiguity='explicit',
     debug=True,
-    lexer='dynamic',
-    ambiguity='explicit',
 )
 
 
 if __name__ == '__main__':
-    tree = abnf_parser.parse(sys.stdin.read())
-    tree = ABNFNormalizer().transform(tree)
-    tree = EmptyTerminalsEliminator().transform(tree)
-    sys.stdout.write(LarkGrammarBuilder().transform(tree))
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
+
+    #with timeit('parsing the grammar'):
+    #    tree = abnf_parser.parse(sys.stdin.read())
+    #print(tree.pretty())
+    #tree = ABNFNormalizer().transform(tree)
+    #tree = EmptyTerminalsEliminator().transform(tree)
+    #sys.stdout.write(LarkGrammarBuilder().transform(tree))

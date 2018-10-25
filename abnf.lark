@@ -1,34 +1,43 @@
 hex: /[0-9A-Fa-f]+/
 dec: /0|([1-9][0-9]*)/
 
-string : "%x" hex ("." hex)* -> numeric_sequence
-       | "%d" dec ("." dec)* -> numeric_sequence
+hex_string: hex_string "." hex | hex
+dec_string: dec_string "." dec | dec
+
+string : "%x" hex_string     -> numeric_sequence
+       | "%d" dec_string     -> numeric_sequence
        | "\"" /[^"]+/ "\""   -> just_a_string
        | "\"\""              -> empty_string
 range: "%x" hex "-" hex
      | "%d" dec "-" dec
 
 identifier: /[a-zA-Z][0-9a-zA-Z\-_]*/
-_WS: /([ \r\n\t]|(;[^\r\n]*?\r\n))+/
+
+_WS_CHUNK_NOT_EOL: /[ \t]/
+_WS_CHUNK_EOL: /[\r\n]|(;[^\r\n]*?\r\n)/
+_WS_CHUNK: _WS_CHUNK_NOT_EOL | _WS_CHUNK_EOL
+_OWS: _OWS _WS_CHUNK |
+_WS: _OWS _WS_CHUNK
 
 unbound_repetition_spec: dec? "*"
 bound_repetition_spec:   dec? "*" dec   -> repetition_high_bound
                      |   dec            -> repetition_exact
 
-?definition0: definition1 (_WS? "/" _WS? definition1)+  -> alternative
+definition0: definition0 _OWS "/" _OWS definition1   -> alternative
             | definition1
-?definition1: definition2 (_WS definition2)+            -> sequence
+definition1: definition1 _WS definition2               -> sequence
             | definition2
-?definition2: bound_repetition_spec definition3         -> bound_repetition
+definition2: bound_repetition_spec definition3         -> bound_repetition
             | unbound_repetition_spec definition3       -> unbound_repetition
             | definition3
-?definition3: "(" _WS? definition0 _WS? ")"             // bracket grouping
-            | "[" _WS? definition0 _WS? "]"             -> optional
+definition3: "(" _OWS definition0 _OWS ")"             // bracket grouping
+            | "[" _OWS definition0 _OWS "]"             -> optional
             | range
             | string                                    -> string
             | identifier                                //-> identifier
 
-rule: identifier _WS? "=" _WS? definition0              -> rule
-    | identifier _WS? "=/" _WS? definition0             -> rule_alternative
+rule: identifier _OWS "=" _OWS definition0              -> rule
+    | identifier _OWS "=/" _OWS definition0             -> rule_alternative
 
-start: _WS? rule (_WS rule)* _WS?
+rules: rules _WS rule | rule
+start: _OWS rules _OWS
