@@ -162,6 +162,51 @@ def transformer(rules):
     return transform
 
 
+fix_names = transformer({
+    'identifier': lambda s: ('identifier', s.replace('_', '__').replace('-', '_')),
+    'rule': lambda s, d: ('rule', s.replace('_', '__').replace('-', '_'), d),
+})
+
+
+### convert grammar elements to supprted format
+
+
+def fix_range_repetition(a, b, what):
+    """Convert to 'a a a [a [a [a]]]'"""
+    if a is None:
+        a = 0
+
+    # special cases
+    if a == 1 and b is None:
+        return ('one_or_more', what)
+    if a == 0 and b is None:
+        return ('zero_or_more', what)
+
+    vs = [what] * a
+
+    if b is None:
+        vs.append(('zero_or_more', what))
+    elif b - a > 0:
+        nested = ('optional', what)
+        for _ in range(b - a - 1):
+            nested = ('optional', ('sequence', [what, nested]))
+        vs.append(nested)
+
+    return ('sequence', vs)
+
+
+fix_repetitions = transformer({
+    'range_repetition':fix_range_repetition,
+    'exact_repetition': lambda n, c: ('sequence', [c] * n),
+    'range': lambda a, b: ('regexp', '[{}-{}]'.format(
+        re.escape(chr(a)),
+        re.escape(chr(b)),
+    ))
+})
+
+
+### squash nested alternatives and sequences
+
 def squash(name):
     def f(vs):
         new_vs = []
@@ -180,44 +225,112 @@ optimize_conjuctive = transformer({
 })
 
 
-fix_names = transformer({
-    'identifier': lambda s: ('identifier', s.replace('_', '__').replace('-', '_')),
-    'rule': lambda s, d: ('rule', s.replace('_', '__').replace('-', '_'), d),
-})
+
+### flatten nested structures
+
+def extract_anons(tree):
+    anon_idents = {}  # content repr -> ident
+    anons = {}  # ident -> content
+
+    def get_ident(content):
+        content_repr = repr(content)
+        if content_repr not in anon_idents:
+            anon_name = "__a{}".format(len(anons))
+            anon_idents[content_repr] = anon_name
+            anons[anon_name] = content
+        return anon_idents[content_repr]
+
+    def anon_extractor(name):
+        def extract(vs):
+            new_vs = []
+            for v in vs:
+                if v[0] in ('sequence', 'alternative'):
+                    new_vs.append(('identifier', get_ident(v)))
+                else:
+                    new_vs.append(v)
+            return (name, new_vs)
+        return extract
+
+    def single_anon_extractor(name):
+        def extract(c):
+            if c[0] in ('sequence', 'alternative'):
+                new_c = ('identifier', get_ident(c))
+            else:
+                new_c = c
+            return (name, new_c)
+        return extract
+
+    def append_anons(rules):
+        new_rules = list(rules)
+        for name, definition in anons.items():
+            new_rules.append(('rule', name, definition))
+        anons.clear()
+        anon_idents.clear()
+        return ('rules', new_rules)
+
+    return transformer({
+        'sequence': anon_extractor('sequence'),
+        'optional': single_anon_extractor('optional'),
+        'zero_or_more': single_anon_extractor('zero_or_more'),
+        'one_or_more': single_anon_extractor('one_or_more'),
+        'rules': append_anons,
+    })(tree)
 
 
-def make_parglare_range_repetition(a, b, what):
-    """Convert to 'a a a [a [a [a]]]'"""
-    if a is None:
-        a = 0
-    s = []
-    for _ in range(a):
-        s.append(what)
-    if b is None:
-        s.append(what + '*')
-    else:
-        for _ in range(b - a):
-            s.append('[{}'.format(what))
-        for _ in range(b - a):
-            s.append(']')
-    return '({})'.format(' '.join(s))
+
+### extract terminals
+
+def extract_terminals(tree):
+    terminal_names = {}  # content -> ident
+    terminals = {}  # ident -> content
+
+    def get_ident(content):
+        if content not in terminal_names:
+            ident = '__t{}'.format(len(terminals))
+            terminal_names[content] = ident
+            terminals[ident] = content
+        return terminal_names[content]
+
+    def extract_string(v):
+        if v == '':
+            return ('string', v)
+        else:
+            return ('identifier', get_ident(('string', v)))
+
+    def extract_regexp(v):
+        return ('identifier', get_ident(('regexp', v)))
+
+    def add_terminals(rules):
+        return (
+            'grammar',
+            rules,
+            [
+                ('rule', k, v)
+                for k, v in terminals.items()
+            ],
+        )
+
+    return transformer({
+        'string': extract_string,
+        'regexp': extract_regexp,
+        'rules': add_terminals,
+    })(tree)
+
+### grammar string construction ###
 
 
 def make_parglare_grammar(grammar):
     return transformer({
-        'rules': lambda c: ''.join(c),
-        'rule': lambda name, definition: name + ': ' + definition + '\n',
-        'alternative': lambda c: "(" + ' | '.join(c) + ")",
-        'sequence': lambda c: '(' + ' '.join(c) + ')',
+        'grammar': lambda c, terminals: ''.join(c) + "\nterminals\n" + ''.join(terminals),
+        'rule': lambda name, definition: name + ': ' + definition + ';\n',
+        'alternative': lambda c: ' | '.join(c),
+        'sequence': lambda c: ' '.join(c),
         'optional': lambda c: c + "?",
-        'range_repetition': make_parglare_range_repetition,
-        'exact_repetition': lambda n, c: "(" + ' '.join([c] * n) + ")",
+        'zero_or_more': lambda c: c + "*",
+        'one_or_more': lambda c: c + "+",
         'identifier': lambda c: c,
         'string': lambda c: 'EMPTY' if c == '' else json.dumps(c),
-        'range': lambda a, b: '/[{}-{}]/'.format(
-            re.escape(chr(a)),
-            re.escape(chr(b)),
-        ),
+        'regexp': lambda s: '/{}/'.format(s),
     })(grammar)
 
 
@@ -227,11 +340,15 @@ if __name__ == '__main__':
     assert len(trees) == 1
     tree = trees[0]
 
-    tree = optimize_conjuctive(tree)
     tree = fix_names(tree)
+    tree = fix_repetitions(tree)
+    tree = optimize_conjuctive(tree)
+    tree = extract_anons(tree)
+    tree = extract_terminals(tree)
+    
+    #pprint(tree)
+    #exit(0)
+    
     tree = make_parglare_grammar(tree)
-    print(tree)
-    #print(tree.pretty())
-    #tree = ABNFNormalizer().transform(tree)
-    #tree = EmptyTerminalsEliminator().transform(tree)
-    #sys.stdout.write(LarkGrammarBuilder().transform(tree))
+    print('__start: complete_expression EOF;')
+    print(make_parglare_grammar(tree))

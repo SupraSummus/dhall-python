@@ -1,35 +1,11 @@
---- dhall-lang/standard/dhall.abnf	2018-10-18 19:16:17.584762338 +0200
-+++ dhall.abnf	2018-10-22 21:14:09.267792479 +0200
-@@ -366,13 +366,13 @@
+--- dhall-lang/standard/dhall.abnf	2018-10-28 13:45:12.120838960 +0100
++++ dhall.abnf	2018-10-28 14:13:17.277610311 +0100
+@@ -439,7 +439,7 @@
  
- natural-literal = natural-raw whitespace
+ userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
  
--identifier = label [ at natural-raw ] whitespace
-+identifier = label [ at natural-raw whitespace ]
- 
- identifier-reserved-prefix =
--    reserved-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw ] whitespace
-+    reserved-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw whitespace ]
- 
- identifier-reserved-namespaced-prefix =
--    reserved-namespaced-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw ] whitespace
-+    reserved-namespaced-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw whitespace ]
- 
- missing = missing-raw whitespace
- 
-@@ -434,12 +434,10 @@
- ; replaces `path-abempty` with `directory file`
- http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
- 
--; NOTE: Backtrack if parsing the optional user info prefix fails
--authority = [ userinfo "@" ] host [ ":" port ]
-+authority = *host-char [":" port [[":" *userinfo-char] "@" *host-char [":" port]]]
- 
--userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
--
 -host = IP-literal / IPv4address / reg-name
-+host-char = unreserved / pct-encoded / sub-delims
-+userinfo-char = host-char / ":"
++host = IP-literal / reg-name
  
  port = *DIGIT
  

@@ -1,12 +1,16 @@
 import sys
 
-from dhall.parser import parser, TreeNormalizer
+import parglare
 from tools import timeit
+
+
+dhall_grammar = parglare.Grammar.from_file("dhall.parglare")
+dhall_parser = parglare.GLRParser(dhall_grammar)
 
 
 if __name__ == '__main__':
     with timeit('parsing'):
-        tree = parser.parse(sys.stdin.read())
+        tree = dhall_parser.parse(sys.stdin.read())
 
-    tree = TreeNormalizer().transform(tree)
-    print(tree.pretty())
+    from pprint import pprint
+    pprint(tree.pretty())

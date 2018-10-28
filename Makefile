@@ -1,6 +1,6 @@
 .PHONY: all clean abnf_patch test
 
-all: dhall/_parser.py
+all: dhall.parglare
 
 clean:
 	rm -rf dhall/_parser.py dhall.parglare dhall.abnf
