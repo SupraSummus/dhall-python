@@ -201,7 +201,8 @@ fix_repetitions = transformer({
     'range': lambda a, b: ('regexp', '[{}-{}]'.format(
         re.escape(chr(a)),
         re.escape(chr(b)),
-    ))
+    )),
+    'string': lambda v: ('string', '') if v == '' else ('regexp', re.escape(v)),
 })
 
 

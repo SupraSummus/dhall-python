@@ -5,8 +5,8 @@ all: dhall.parglare
 clean:
 	rm -rf dhall/_parser.py dhall.parglare dhall.abnf
 
-dhall/_parser.py: dhall.lark
-	python -m lark.tools.standalone $< complete_expression > $@
+#dhall/_parser.py: dhall.lark
+#	python -m lark.tools.standalone $< complete_expression > $@
 
 dhall.parglare: dhall.abnf abnf2parglare.py
 	cat $< | python abnf2parglare.py > $@

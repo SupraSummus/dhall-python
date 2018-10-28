@@ -1,5 +1,17 @@
 --- dhall-lang/standard/dhall.abnf	2018-10-28 13:45:12.120838960 +0100
-+++ dhall.abnf	2018-10-28 14:13:17.277610311 +0100
++++ dhall.abnf	2018-10-28 16:32:45.454795152 +0100
+@@ -116,9 +116,9 @@
+     / line-comment
+     / block-comment
+ 
+-whitespace = *whitespace-chunk
++whitespace = "" / whitespace whitespace-chunk
+ 
+-nonempty-whitespace = 1*whitespace-chunk
++nonempty-whitespace = whitespace whitespace-chunk
+ 
+ ; Uppercase or lowercase ASCII letter
+ ALPHA = %x41-5A / %x61-7A
 @@ -439,7 +439,7 @@
  
  userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
