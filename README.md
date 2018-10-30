@@ -1,12 +1,18 @@
-abnf2lark.py
-============
+**Work in progres**
 
-This script will convert ABNF grammar description into LARK description.
+    make test
 
-    cat dhall/dhall.abnf | python abnf2lark.py > dhall/grammar.py
+abnf2parglare.py
+----------------
+
+This script will convert ABNF grammar description into [parglare](https://github.com/igordejanovic/parglare) description.
+
+    cat dhall/dhall.abnf | python abnf2parglare.py > dhall.parglare
+
+This is currently not working fully. Regexp terminals are not fully escaped.
 
 dhall
-=====
+-----
 
 Dhall parser - work in progress
 
