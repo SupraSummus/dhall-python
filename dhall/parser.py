@@ -7,13 +7,16 @@ DYNAMIC = bool(os.environ.get('DYNAMIC'))
 
 if DYNAMIC:
     from lark import Discard, Transformer, Lark
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
     with timeit('making dynamic parser'):
         parser = Lark(
-            open('dhall.lark').read(),
-            parser='earley',
+            open('dhall.lark.manual').read(),
+            parser='lalr',
             #lexer="contextual",
             start='complete_expression',
-            ambiguity='explicit',
+            #ambiguity='explicit',
+            debug=True,
         )
 
 else:
