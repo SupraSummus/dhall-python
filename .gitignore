@@ -1,5 +1,3 @@
 *.pyc
 dhall.abnf
-dhall.parglare
-dhall.pgt
-dhall/_parser.py
+dhall/grammar.py

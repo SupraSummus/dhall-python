@@ -1,29 +1,16 @@
 from tools import timeit
-from pprint import pprint
+import parglare
 
-import os
+from .parglare_adapter import to_parglare_grammar
 
-DYNAMIC = bool(os.environ.get('DYNAMIC'))
 
-if DYNAMIC:
-    from lark import Discard, Transformer, Lark
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    with timeit('making dynamic parser'):
-        parser = Lark(
-            open('dhall.lark.manual').read(),
-            parser='lalr',
-            #lexer="contextual",
-            start='complete_expression',
-            #ambiguity='explicit',
-            debug=True,
-        )
+with timeit('importing grammar'):
+    from .grammar import grammar
 
-else:
-    with timeit("importing parser"):
-        from ._parser import Lark_StandAlone, Discard, Transformer
-    with timeit('making parser'):
-        parser = Lark_StandAlone()
+
+with timeit('making parser'):
+    _grammar, _start = to_parglare_grammar(*grammar, 'complete-expression')
+    parser = parglare.GLRParser(_grammar, start_production=_start, ws='')
 
 
 def _inline_single(self, args):
@@ -53,7 +40,7 @@ def _discard(self, args):
     raise Discard()
 
 
-class TreeNormalizer(Transformer):
+class TreeNormalizer:
     alpha = _inline_single
     comma = _discard
     colon = _discard

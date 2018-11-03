@@ -1,11 +1,11 @@
 .PHONY: all clean abnf_patch test
 
-all: dhall.parglare
+all: dhall/grammar.py
 
 clean:
-	rm -rf dhall/_parser.py dhall.parglare dhall.abnf
+	rm -rf dhall/grammar.py dhall.abnf
 
-dhall.parglare: dhall.abnf abnf2parglare.py
+dhall/grammar.py: dhall.abnf abnf2parglare.py
 	cat $< | python abnf2parglare.py > $@
 
 dhall.abnf: dhall-lang/standard/dhall.abnf dhall.abnf.patch
