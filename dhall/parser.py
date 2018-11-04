@@ -5,7 +5,7 @@ from .parglare_adapter import to_parglare_grammar
 
 
 with timeit('importing grammar'):
-    from .grammar import grammar
+    from ._grammar import grammar
     productions, terminals, original_start_symbol, start_symbol, parse_table = grammar
 
 
@@ -35,15 +35,16 @@ def _inline_if_single(wrap=None):
     return f
 
 
-#def _const(v):
-#    def f(self, args):
-#        assert len(args) == 0, args
-#        return v
-#    return f
+def _const(v):
+    def f(self, args):
+        assert len(args) == 0, args
+        return v
+    return f
 
 
 def _discard(self, args):
-    raise Discard()
+    pass  # TODO should be:
+    # raise Discard()
 
 
 class TreeNormalizer:
