@@ -6,7 +6,8 @@ from dhall.parser import parser
 
 if __name__ == '__main__':
     with timeit('parsing'):
-        tree = parser.parse(sys.stdin.read())
+        trees = parser.parse(sys.stdin.read())
+    assert len(trees) == 1
+    tree = trees[0]
 
-    from pprint import pprint
-    pprint(tree)
+    print(tree)
