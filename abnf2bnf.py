@@ -1,5 +1,4 @@
 import parglare
-import sys
 
 from tools import timeit
 from dhall.parglare_adapter import to_parglare_grammar
@@ -138,18 +137,25 @@ with timeit('making grammar parser'):
             'rule': lambda _, c: (c[0], c[4]),
             'rules': concat_0_2_actions,
             'start': lambda _, c: Grammar(dict(c[1])),
-            '__start': take_raw(0),
+            start_symbol: take_raw(0),
         },
     )
 
 if __name__ == '__main__':
-    from pprint import pprint
+    import json
+    import sys
+
+    if len(sys.argv) != 2:
+        print('usage: {} start-symbol-name'.format(sys.argv[0]), file=sys.stderr)
+        exit(1)
+    start = sys.argv[1]
 
     with timeit('parsing the grammar'):
         trees = abnf_parser.parse(sys.stdin.read())
     assert len(trees) == 1
     tree = trees[0]
 
-    productions, terminals = tree.to_productions_dict()
-    print('grammar = ', end='')
-    pprint((productions, terminals))
+    with timeit('converting into BNF'):
+        productions, terminals = tree.to_productions_dict()
+
+    json.dump((productions, terminals, start), sys.stdout)

@@ -5,7 +5,7 @@ name = "pypi"
 
 [packages]
 "flake8" = "*"
-parglare = "*"
+parglare = {git = "https://github.com/SupraSummus/parglare.git", ref = "551c7efa013ff010af25868c07e1a78f6df9775e"}
 
 [dev-packages]
 

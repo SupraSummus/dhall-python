@@ -1,19 +1,30 @@
+Dhall for python
+================
+
+Pure python implementation of dhall language.
+
 **Work in progres**
 
     make test
 
-abnf2parglare.py
+
+abnf2bnf.py
+-----------
+
+The scripts converts ABNF sugar into plain BNF-like format serialized in JSON. As an only argument it takes name of start symbol.
+
+    cat dhall.abnf | python abnf2bnf.py complete-expression > dhall.bnf.json
+
+bnf2parglare.py
 ----------------
 
 This script will convert ABNF grammar description into [parglare](https://github.com/igordejanovic/parglare) description.
 
-    cat dhall/dhall.abnf | python abnf2parglare.py > dhall.parglare
-
-This is currently not working fully. Regexp terminals are not fully escaped.
+    cat dhall.bnf.json | python bnf2parglare.py > dhall.parglare.json
 
 dhall
 -----
 
 Dhall parser - work in progress
 
-    cat example.dhall | python dhall.py
+    cat dhall-haskell/tests/parser/annotations.dhall | python dhall.py

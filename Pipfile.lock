@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "13ce1b541e06fc1e6a63c77acbe1af098c8abd97f2c9ef3402b25c795bdc815c"
+            "sha256": "f6f783174a3eb4bb0dbc744c89ddcbf3ceb22810773abc439071426a30426b8e"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,13 +16,6 @@
         ]
     },
     "default": {
-        "click": {
-            "hashes": [
-                "sha256:2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13",
-                "sha256:5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"
-            ],
-            "version": "==7.0"
-        },
         "flake8": {
             "hashes": [
                 "sha256:6a35f5b8761f45c5513e3405f110a86bea57982c3b75b766ce7b65217abe1670",
@@ -39,12 +32,8 @@
             "version": "==0.6.1"
         },
         "parglare": {
-            "hashes": [
-                "sha256:3f1d57c5848004c5751f4bc674970fd79e7bd1da54e919f1dbcf4cb72605c35d",
-                "sha256:876434048947b5a45a2538e56c3a5ca4a92afb29b231c6d29ac765c227c3fa6f"
-            ],
-            "index": "pypi",
-            "version": "==0.8.0"
+            "git": "https://github.com/SupraSummus/parglare.git",
+            "ref": "551c7efa013ff010af25868c07e1a78f6df9775e"
         },
         "pycodestyle": {
             "hashes": [

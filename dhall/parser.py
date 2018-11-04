@@ -6,11 +6,17 @@ from .parglare_adapter import to_parglare_grammar
 
 with timeit('importing grammar'):
     from .grammar import grammar
+    productions, terminals, original_start_symbol, start_symbol, parse_table = grammar
 
 
 with timeit('making parser'):
-    _grammar, _start = to_parglare_grammar(*grammar, 'complete-expression')
-    parser = parglare.GLRParser(_grammar, start_production=_start, ws='')
+    _grammar, _start = to_parglare_grammar(productions, terminals, original_start_symbol)
+    assert _start == start_symbol
+    parser = parglare.GLRParser(
+        _grammar,
+        ws='',
+        table=parglare.tables.persist.table_from_serializable(parse_table, _grammar),
+    )
 
 
 def _inline_single(self, args):

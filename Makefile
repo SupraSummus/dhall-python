@@ -5,8 +5,8 @@ all: dhall/grammar.py
 clean:
 	rm -rf dhall/grammar.py dhall.abnf
 
-dhall/grammar.py: dhall.abnf abnf2parglare.py
-	cat $< | python abnf2parglare.py > $@
+dhall/grammar.py: dhall.abnf abnf2bnf.py bnf2parglare.py json2python.py grammar_desugaring.py
+	cat $< | python abnf2bnf.py complete-expression | python bnf2parglare.py | python json2python.py grammar > $@
 
 dhall.abnf: dhall-lang/standard/dhall.abnf dhall.abnf.patch
 	patch --binary -o $@ $^
