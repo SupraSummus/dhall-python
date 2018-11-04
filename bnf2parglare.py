@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     productions, terminals, original_start = json.load(sys.stdin)
     grammar, start = to_parglare_grammar(productions, terminals, original_start)
-    
+
     with timeit('computing parse table'):
         table = create_table(
             grammar,

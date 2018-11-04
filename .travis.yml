@@ -1,0 +1,10 @@
+language: python
+python:
+  - "3.6"
+install:
+  - pip install pipenv
+  - pipenv install
+  - pipenv run make
+script:
+  - pipenv run flake8
+  - pipenv run make test
