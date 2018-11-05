@@ -4,10 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-"flake8" = "*"
 parglare = {git = "https://github.com/SupraSummus/parglare.git", ref = "551c7efa013ff010af25868c07e1a78f6df9775e"}
+dataclasses = "*"  # This is for older pythons. Since 3.7 dataclasses are built-in.
 
 [dev-packages]
+"flake8" = "*"
 
 [requires]
 python_version = "3.7"
