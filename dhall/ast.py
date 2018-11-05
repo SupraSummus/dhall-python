@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from dataclasses import dataclass
 
 
@@ -47,5 +48,35 @@ class TypeBound(Expression):
 
 
 @dataclass
-class ListAppendExpression(Expression):
-    expressions: [Expression]
+class OperatorExpression(Expression):
+    arg1: Expression
+    arg2: Expression
+
+
+class ListAppendExpression(OperatorExpression):
+    pass
+
+
+class ApplicationExpression(OperatorExpression):
+    pass
+
+
+@dataclass
+class ImportExpression(Expression):
+    source: Any
+
+
+@dataclass
+class SelectorExpression(Expression):
+    expression: Expression
+    labels: [str]
+
+
+@dataclass
+class RecordLiteral(Expression):
+    fields: Dict[str, Expression]
+
+
+@dataclass
+class RecordType(Expression):
+    fields: Dict[str, Expression]

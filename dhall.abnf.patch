@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-10-28 13:45:12.120838960 +0100
-+++ dhall.abnf	2018-10-28 16:32:45.454795152 +0100
++++ dhall.abnf	2018-11-05 19:47:00.051285601 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -21,3 +21,68 @@
  
  port = *DIGIT
  
+@@ -613,24 +613,24 @@
+ 
+ operator-expression = import-alt-expression
+ 
+-import-alt-expression    = or-expression            *(import-alt            or-expression)
+-or-expression            = plus-expression          *(or                    plus-expression         )
+-plus-expression          = text-append-expression   *(plus whitespace-chunk text-append-expression  )
+-text-append-expression   = list-append-expression   *(text-append           list-append-expression  )
+-list-append-expression   = and-expression           *(list-append           and-expression          )
+-and-expression           = combine-expression       *(and                   combine-expression      )
+-combine-expression       = prefer-expression        *(combine               prefer-expression       )
+-prefer-expression        = combine-types-expression *(prefer                combine-types-expression)
+-combine-types-expression = times-expression         *(combine-types         times-expression        )
+-times-expression         = equal-expression         *(times                 equal-expression        )
+-equal-expression         = not-equal-expression     *(double-equal          not-equal-expression    )
+-not-equal-expression     = application-expression   *(not-equal             application-expression  )
++import-alt-expression    = or-expression            / import-alt-expression import-alt or-expression
++or-expression            = plus-expression          / or-expression or plus-expression
++plus-expression          = text-append-expression   / plus-expression plus whitespace-chunk text-append-expression
++text-append-expression   = list-append-expression   / text-append-expression text-append list-append-expression
++list-append-expression   = and-expression           / list-append-expression list-append and-expression
++and-expression           = combine-expression       / and-expression and combine-expression
++combine-expression       = prefer-expression        / combine-expression combine prefer-expression
++prefer-expression        = combine-types-expression / prefer-expression prefer combine-types-expression
++combine-types-expression = times-expression         / combine-types-expression combine-types times-expression
++times-expression         = equal-expression         / times-expression times equal-expression
++equal-expression         = not-equal-expression     / equal-expression double-equal not-equal-expression
++not-equal-expression     = constructors-or-some-expression / not-equal-expression not-equal constructors-or-some-expression
+ 
+ ; Import expressions need to be separated by some whitespace, otherwise there
+ ; would be ambiguity: `./ab` could be interpreted as "import the file `./ab`",
+ ; or "apply the import `./a` to label `b`"
+-application-expression =
+-    [ constructors / Some ] import-expression *(whitespace-chunk import-expression)
++constructors-or-some-expression = [ constructors / Some ] application-expression
++application-expression = import-expression / application-expression whitespace-chunk import-expression
+ 
+ import-expression = import / selector-expression
+ 
+@@ -642,7 +642,7 @@
+ ; can't tell from parsing just the period whether "foo." will become "foo.bar"
+ ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
+ ; the function `foo` to the relative path `./bar`)
+-selector-expression = primitive-expression *(dot ( label / labels ))
++selector-expression = primitive-expression / selector-expression dot ( label / labels )
+ 
+ ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
+ ; literals).  This is because they share leading characters in common
+@@ -703,14 +703,9 @@
+ 
+ record-type-or-literal =
+       equal                             ; Empty record literal
+-    / non-empty-record-type-or-literal
+     / ""                                ; Empty record type
+-
+-non-empty-record-type-or-literal =
+-    label (non-empty-record-literal / non-empty-record-type)
+-
+-non-empty-record-type    = colon expression *(comma label colon expression)
+-non-empty-record-literal = equal expression *(comma label equal expression)
++    / label colon expression *(comma label colon expression) ; nonempty record type
++    / label equal expression *(comma label equal expression) ; nonempty record literal
+ 
+ union-type-or-literal =
+       non-empty-union-type-or-literal

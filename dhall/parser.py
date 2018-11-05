@@ -1,11 +1,7 @@
 from tools import timeit
 import parglare
 
-from .ast import (
-    Lambda, Conditional, LetIn, ForAll, Arrow,
-    TypeBound,
-    ListAppendExpression,
-)
+from . import ast
 from .parglare_adapter import to_parglare_grammar
 
 
@@ -32,13 +28,16 @@ def identity_list(*a):
     return a
 
 
-def pass_single_and_wrap_more(wrapper):
-    def f(first, nexts):
-        if nexts == []:
-            return first
-        else:
-            return wrapper([first] + nexts)
-    return [f]
+def collect_pairs(c, a_index, b_index):
+    pairs = []
+    # increase by 1 to account for the first, recursive segment
+    a_index += 1
+    b_index += 1
+    while len(c) != 0:
+        pairs.append((c[a_index], c[b_index]))
+        c = c[0]
+    pairs.reverse()
+    return pairs
 
 
 def not_implemented_function(text=None):
@@ -58,29 +57,30 @@ actions['label'] = [lambda c, _ws: c if isinstance(c, str) else c[1]]
 
 actions['expression'] = [
     # lambda
-    lambda _1, _2, label, _3, typ, _4, _5, expr: Lambda(label, typ, expr),
+    lambda _1, _2, label, _3, typ, _4, _5, expr: ast.Lambda(label, typ, expr),
     # conditional
-    lambda _1, condition, _2, if_true, _3, if_false: Conditional(condition, if_true, if_false),
+    lambda _1, condition, _2, if_true, _3, if_false: ast.Conditional(condition, if_true, if_false),
     # let .. = .. in ..
-    lambda _1, label, maybe_type, _2, value, _3, expr: LetIn(label, maybe_type, value, expr),
+    lambda _1, label, maybe_type, _2, value, _3, expr: ast.LetIn(label, maybe_type, value, expr),
     # forall
-    lambda _1, _2, label, _3, typ, _4, _5, expr: ForAll(label, typ, expr),
+    lambda _1, _2, label, _3, typ, _4, _5, expr: ast.ForAll(label, typ, expr),
     # arrow
-    lambda a, _, b: Arrow(a, b),
+    lambda a, _, b: ast.Arrow(a, b),
     identity,
 ]
 actions['annotated-expression'] = [
     identity_list,
     identity_list,
-    lambda expr, maybe_type: TypeBound(expr, maybe_type[1]) if len(maybe_type) > 0 else expr,
+    lambda expr, maybe_type: ast.TypeBound(expr, maybe_type[1]) if len(maybe_type) > 0 else expr,
 ]
-actions['oprator-expression'] = [parglare.actions.pass_single]
+actions['oprator-expression'] = [identity]
+
 for name, wrapper in {
     'import-alt-expression': None,
     'or-expression': None,
     'plus-expression': None,
     'text-append-expression': None,
-    'list-append-expression': ListAppendExpression,
+    'list-append-expression': ast.ListAppendExpression,
     'and-expression': None,
     'combine-expression': None,
     'prefer-expression': None,
@@ -88,13 +88,53 @@ for name, wrapper in {
     'times-expression': None,
     'equal-expression': None,
     'not-equal-expression': None,
+    'application-expression': ast.ApplicationExpression,
+    'selector-expression': ast.SelectorExpression,
 }.items():
-    actions[name] = pass_single_and_wrap_more(
-        not_implemented_function('expression {} not implemented'.format(name)) if wrapper is None else wrapper,
-    )
+    actions[name] = [
+        identity,
+        {
+            True: not_implemented_function('expression {} not implemented'.format(name)),
+            False: lambda *c: wrapper(c[0], c[-1]),
+        }[wrapper is None],
+    ]
 
-actions['application-expression'] = [
-    lambda _, expr, tail: ('application', _, expr, tail) if len(tail) > 0 else expr,
+actions['constructors-or-some-expression'] = [
+    # TODO
+    # not_implemented_function('constructors'),
+    # not_implemented_function('Some'),
+    # identity,
+    lambda _, a: a,
+]
+
+actions['import-expresstion'] = [
+    ast.ImportExpression,
+    identity,
+]
+
+actions['primitive-expression'] = [
+    identity,
+    identity,
+    identity,
+    identity,
+    # record type or literal
+    lambda _1, a, _2: a,
+    identity,
+    identity,
+    identity,
+    identity,
+    identity,
+    identity,
+    identity,
+    # ordinary parentesis
+    lambda _1, a, _2: a,
+]
+
+actions['record-type-or-literal'] = [
+    lambda _: ast.RecordLiteral({}),
+    lambda _: ast.RecordType({}),
+    lambda label, _, e, c: ast.RecordType([(label, e)] + collect_pairs(c, 1, 3)),
+    lambda label, _, e, c: ast.RecordLiteral([(label, e)] + collect_pairs(c, 1, 3)),
 ]
 
 
