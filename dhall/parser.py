@@ -24,10 +24,6 @@ def identity(a):
     return a
 
 
-def identity_list(*a):
-    return a
-
-
 def collect_pairs(c, a_index, b_index):
     pairs = []
     # increase by 1 to account for the first, recursive segment
@@ -40,10 +36,21 @@ def collect_pairs(c, a_index, b_index):
     return pairs
 
 
-def not_implemented_function(text=None):
-    def f(*args, **kwargs):
-        raise NotImplementedError(text)
-    return f
+def collect(c, i):
+    r = []
+    # increase by 1 to account for the first, recursive segment
+    i += 1
+    while len(c) != 0:
+        r.append(c[i])
+        c = c[0]
+    r.reverse()
+    return r
+
+
+def _operator_wrapper(f):
+    def g(*c):
+        return f(c[0], c[-1])
+    return g
 
 
 actions = {}
@@ -54,6 +61,9 @@ actions[original_start_symbol] = [lambda _, a: a]
 actions['simple-label'] = [concat_all]
 actions['quoted-label'] = [concat_all]
 actions['label'] = [lambda c, _ws: c if isinstance(c, str) else c[1]]
+
+actions['natural-raw'] = [lambda f, c: int(f + ''.join(collect(c, 0)))]
+actions['natural-literal'] = [lambda a, _: a]
 
 actions['expression'] = [
     # lambda
@@ -69,42 +79,47 @@ actions['expression'] = [
     identity,
 ]
 actions['annotated-expression'] = [
-    identity_list,
-    identity_list,
-    lambda expr, maybe_type: ast.TypeBound(expr, maybe_type[1]) if len(maybe_type) > 0 else expr,
+    lambda _, a, b: ast.MergeExpression(a, b),
+    lambda _1, a, b, _2, t: ast.TypeBound(ast.MergeExpression(a, b), t),
+
+    lambda _1, _2, _3, _4, t: ast.TypeBound(ast.ListLiteral([]), ast.ListType(t)),
+    lambda _1, _2, _3, _4, t: ast.TypeBound(ast.OptionalLiteral(None), ast.OptionalType(t)),
+    lambda _1, e, _2, _3, _4, t: ast.TypeBound(ast.OptionalLiteral(e), ast.OptionalType(t)),
+
+    lambda expr, _, typ: ast.TypeBound(expr, typ),
+    identity,
 ]
 actions['oprator-expression'] = [identity]
 
+# operators
 for name, wrapper in {
-    'import-alt-expression': None,
-    'or-expression': None,
-    'plus-expression': None,
-    'text-append-expression': None,
+    # 'import-alt-expression': None,
+    # 'or-expression': None,
+    # 'plus-expression': None,
+    # 'text-append-expression': None,
     'list-append-expression': ast.ListAppendExpression,
-    'and-expression': None,
-    'combine-expression': None,
-    'prefer-expression': None,
-    'combine-types-expression': None,
-    'times-expression': None,
-    'equal-expression': None,
-    'not-equal-expression': None,
+    # 'and-expression': None,
+    # 'combine-expression': None,
+    # 'prefer-expression': None,
+    # 'combine-types-expression': None,
+    # 'times-expression': None,
+    # 'equal-expression': None,
+    # 'not-equal-expression': None,
     'application-expression': ast.ApplicationExpression,
     'selector-expression': ast.SelectorExpression,
 }.items():
     actions[name] = [
         identity,
-        {
-            True: not_implemented_function('expression {} not implemented'.format(name)),
-            False: lambda *c: wrapper(c[0], c[-1]),
-        }[wrapper is None],
+        _operator_wrapper(wrapper),
     ]
+
 
 actions['constructors-or-some-expression'] = [
     # TODO
     # not_implemented_function('constructors'),
     # not_implemented_function('Some'),
     # identity,
-    lambda _, a: a,
+    lambda a, b: (a, b) if a != [] else b,
 ]
 
 actions['import-expresstion'] = [
@@ -117,8 +132,10 @@ actions['primitive-expression'] = [
     identity,
     identity,
     identity,
+
     # record type or literal
     lambda _1, a, _2: a,
+
     identity,
     identity,
     identity,
@@ -126,6 +143,7 @@ actions['primitive-expression'] = [
     identity,
     identity,
     identity,
+
     # ordinary parentesis
     lambda _1, a, _2: a,
 ]
@@ -135,6 +153,16 @@ actions['record-type-or-literal'] = [
     lambda _: ast.RecordType({}),
     lambda label, _, e, c: ast.RecordType([(label, e)] + collect_pairs(c, 1, 3)),
     lambda label, _, e, c: ast.RecordLiteral([(label, e)] + collect_pairs(c, 1, 3)),
+]
+
+actions['non-empty-list-literal'] = [
+    lambda _1, expr, exprs, _2: ast.ListLiteral([expr] + collect(exprs, 1)),
+]
+
+
+actions['identifier'] = [
+    lambda a: ast.Identifier(a, 0),
+    lambda a, _, scope_num: ast.Identifier(a, scope_num),
 ]
 
 

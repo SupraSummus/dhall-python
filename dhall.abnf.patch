@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-10-28 13:45:12.120838960 +0100
-+++ dhall.abnf	2018-11-05 19:47:00.051285601 +0100
++++ dhall.abnf	2018-11-07 20:32:18.167987916 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -12,6 +12,15 @@
  
  ; Uppercase or lowercase ASCII letter
  ALPHA = %x41-5A / %x61-7A
+@@ -366,7 +366,7 @@
+ 
+ natural-literal = natural-raw whitespace
+ 
+-identifier = label [ at natural-raw whitespace ]
++identifier = label / label at natural-raw whitespace
+ 
+ identifier-reserved-prefix =
+     reserved-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw whitespace ]
 @@ -439,7 +439,7 @@
  
  userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
@@ -21,7 +30,33 @@
  
  port = *DIGIT
  
-@@ -613,24 +613,24 @@
+@@ -593,7 +593,8 @@
+ annotated-expression =
+     ; "merge e1 e2 : t"
+     ; "merge e1 e2"
+-      merge import-expression import-expression [ colon application-expression ]
++      merge import-expression import-expression
++    / merge import-expression import-expression colon application-expression
+ 
+     ; "[]  : List     t"
+     ; "[]  : Optional t"
+@@ -602,35 +603,34 @@
+     ; NOTE: Backtrack if parsing this alternative fails since we can't tell
+     ; from the opening bracket whether or not this will be an empty list or
+     ; non-empty list
+-    / open-bracket (empty-collection / non-empty-optional)
++    / open-bracket close-bracket colon List import-expression
++    / open-bracket close-bracket colon Optional import-expression
++    / open-bracket expression close-bracket colon Optional import-expression
+ 
+     ; "x : t"
+-    / operator-expression (colon expression / "")
+-
+-empty-collection = close-bracket colon (List / Optional) import-expression
+-
+-non-empty-optional = expression close-bracket colon Optional import-expression
++    / operator-expression colon expression
++    / operator-expression
  
  operator-expression = import-alt-expression
  

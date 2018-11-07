@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -21,10 +21,10 @@ class Conditional(Expression):
 
 
 @dataclass
-class LetIn(Lambda):
+class LetIn(Expression):
     parameter_label: str
-    parameter_value: Expression
     parameter_type: Expression
+    parameter_value: Expression
     expression: Expression
 
 
@@ -48,16 +48,20 @@ class TypeBound(Expression):
 
 
 @dataclass
-class OperatorExpression(Expression):
+class BinaryOperatorExpression(Expression):
     arg1: Expression
     arg2: Expression
 
 
-class ListAppendExpression(OperatorExpression):
+class ListAppendExpression(BinaryOperatorExpression):
     pass
 
 
-class ApplicationExpression(OperatorExpression):
+class ApplicationExpression(BinaryOperatorExpression):
+    pass
+
+
+class MergeExpression(BinaryOperatorExpression):
     pass
 
 
@@ -72,11 +76,43 @@ class SelectorExpression(Expression):
     labels: [str]
 
 
+# literals
+
+
+@dataclass
+class ListLiteral(Expression):
+    items: [Expression]
+
+
 @dataclass
 class RecordLiteral(Expression):
-    fields: Dict[str, Expression]
+    fields: [(str, Expression)]
+
+
+@dataclass
+class OptionalLiteral(Expression):
+    wrapped: Optional[Expression]
+
+
+@dataclass
+class Identifier(Expression):
+    name: str
+    scope: Optional[int]
+
+
+# types
+
+
+@dataclass
+class ListType(Expression):
+    items_type: Expression
 
 
 @dataclass
 class RecordType(Expression):
     fields: Dict[str, Expression]
+
+
+@dataclass
+class OptionalType(Expression):
+    wrapped: Expression
