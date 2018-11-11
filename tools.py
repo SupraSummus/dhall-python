@@ -1,6 +1,11 @@
 from contextlib import contextmanager
 from time import time
+import logging
 import sys
+
+
+# TODO someday replace sys.stderr with logging, maybe
+logger = logging.getLogger(__name__)
 
 
 @contextmanager

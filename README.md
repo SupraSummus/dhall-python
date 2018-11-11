@@ -20,7 +20,7 @@ The scripts converts ABNF sugar into plain BNF-like format serialized in JSON. A
 bnf2parglare.py
 ----------------
 
-This script will convert ABNF grammar description into [parglare](https://github.com/igordejanovic/parglare) description.
+This script will convert BNF grammar description into [parglare](https://github.com/igordejanovic/parglare) description.
 
     cat dhall.bnf.json | python bnf2parglare.py > dhall.parglare.json
 

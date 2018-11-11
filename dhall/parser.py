@@ -139,10 +139,6 @@ actions['primitive-expression'] = [
     identity,
     identity,
     identity,
-    identity,
-    identity,
-    identity,
-    identity,
 
     # ordinary parentesis
     lambda _1, a, _2: a,

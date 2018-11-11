@@ -1,12 +1,10 @@
-if __name__ == '__main__':
-    import json
-    from dhall.parglare_adapter import to_parglare_grammar
-    from parglare.tables import create_table, LALR
-    from parglare.tables.persist import table_to_serializable
-    import sys
-    from tools import timeit
+from dhall.parglare_adapter import to_parglare_grammar
+from parglare.tables import create_table, LALR
+from parglare.tables.persist import table_to_serializable
+from tools import timeit
 
-    productions, terminals, original_start = json.load(sys.stdin)
+
+def bnf2parglare(productions, terminals, original_start):
     grammar, start = to_parglare_grammar(productions, terminals, original_start)
 
     with timeit('computing parse table'):
@@ -16,9 +14,21 @@ if __name__ == '__main__':
             itemset_type=LALR,
             prefer_shifts=False,
             prefer_shifts_over_empty=False,
+            lexical_disambiguation=False,
         )
 
+    serializable_table = table_to_serializable(table)
+
+    return productions, terminals, original_start, start, serializable_table
+
+
+if __name__ == '__main__':
+    import json
+    import sys
+
+    productions, terminals, original_start = json.load(sys.stdin)
+
     json.dump(
-        (productions, terminals, original_start, start, table_to_serializable(table)),
+        bnf2parglare(productions, terminals, original_start),
         sys.stdout,
     )

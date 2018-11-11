@@ -141,6 +141,19 @@ with timeit('making grammar parser'):
         },
     )
 
+
+def abnf2bnf(grammar, start):
+    with timeit('parsing the grammar'):
+        trees = abnf_parser.parse(grammar)
+    assert len(trees) == 1
+    tree = trees[0]
+
+    with timeit('converting into BNF'):
+        productions, terminals = tree.to_productions_dict()
+
+    return productions, terminals, start
+
+
 if __name__ == '__main__':
     import json
     import sys
@@ -150,12 +163,4 @@ if __name__ == '__main__':
         exit(1)
     start = sys.argv[1]
 
-    with timeit('parsing the grammar'):
-        trees = abnf_parser.parse(sys.stdin.read())
-    assert len(trees) == 1
-    tree = trees[0]
-
-    with timeit('converting into BNF'):
-        productions, terminals = tree.to_productions_dict()
-
-    json.dump((productions, terminals, start), sys.stdout)
+    json.dump(abnf2bnf(sys.stdin.read(), start), sys.stdout)

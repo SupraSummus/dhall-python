@@ -13,7 +13,3 @@ dhall.abnf: dhall-lang/standard/dhall.abnf dhall.abnf.patch
 
 abnf_patch:
 	diff -u dhall-lang/standard/dhall.abnf dhall.abnf > dhall.abnf.patch
-
-test: all
-	cat dhall-haskell/tests/parser/annotations.dhall | python dhall.py
-	cat dhall-haskell/tests/parser/builtins.dhall | python dhall.py
