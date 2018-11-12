@@ -18,11 +18,16 @@ def get_tests(dir_path):
 
 class TypecheckSuccessSimpleTestCase(TestCase):
     tests = get_tests('./dhall-lang/tests/typecheck/success/simple/')
-    tests = {'0': tests['0']}  # select tests - we dont have full typechecker yet
+    # select tests - we dont have full typechecker yet
+    tests = {
+        '0': tests['0'],
+        '1': tests['1'],
+    }
 
     @parameterized.expand(sorted(tests.items()))
     def test_typecheck_success(self, _name, paths):
         assert len(paths) == 2  # sanity check
         val = dhall.parser.load(paths['A'])
         typ = dhall.parser.load(paths['B'])
+        print(val, typ)
         self.assertEqual(val.type(), typ)

@@ -41,6 +41,7 @@ class ForAll(Expression):
     expression: Expression
 
 
+# TODO delete - it's sugar for ForAll
 @dataclass
 class Arrow(Expression):
     a: Expression
@@ -87,10 +88,19 @@ class SelectExpression(Expression):
     label: str
 
     def type(self):
-        expression_type = self.expression.type()
-        if not isinstance(expression_type, RecordType):
-            raise TypeError('expresion to select fields from must be a record')
-        return expression_type.fields_dict[self.label]
+        if isinstance(self.expression, UnionType):
+            self.expression.type()
+            return ForAll(
+                None,
+                self.expression.alternatives_dict[self.label],
+                self.expression,
+            )
+
+        if isinstance(self.expression, RecordLiteral):
+            self.expression.type()
+            return self.expression.fields_dict[self.label].type()
+
+        raise TypeError('Can\'t select type from {}'.format(self.expression))
 
 
 @dataclass
@@ -127,6 +137,23 @@ class RecordLiteral(Expression):
             for l, val in self.fields
         ])
 
+    @property
+    def fields_dict(self):
+        return dict(self.fields)
+
+
+@dataclass
+class Union(Expression):
+    label: str
+    value: Expression
+    alternatives: [(str, Expression)]
+
+    def type(self):
+        if not unique([self.label] + [a[0] for a in self.alternatives]):
+            raise TypeError('nonunique union labels')
+        # TODO verify that all expressions are types
+        return UnionType([(self.label, self.value.type())] + self.alternatives)
+
 
 @dataclass
 class OptionalLiteral(Expression):
@@ -143,6 +170,11 @@ class BuiltinNotImplemented(Expression):
     pass
 
 
+class NaturalBuiltin(Expression):
+    def type(self):
+        return TypeBuiltin()
+
+
 class TextBuiltin(Expression):
     def type(self):
         return TypeBuiltin()
@@ -156,7 +188,7 @@ builtins = {
     'Bool': BuiltinNotImplemented,
     'Optional': BuiltinNotImplemented,
     'None': BuiltinNotImplemented,
-    'Natural': BuiltinNotImplemented,
+    'Natural': NaturalBuiltin,
     'Integer': BuiltinNotImplemented,
     'Double': BuiltinNotImplemented,
     'Text': TextBuiltin,
@@ -192,6 +224,15 @@ class RecordType(Expression):
     @property
     def fields_dict(self):
         return dict(self.fields)
+
+
+@dataclass
+class UnionType(Expression):
+    alternatives: [(str, Expression)]
+
+    @property
+    def alternatives_dict(self):
+        return dict(self.alternatives)
 
 
 @dataclass

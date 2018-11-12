@@ -139,10 +139,8 @@ actions['primitive-expression'] = [
 
     identity_list,
 
-    # record type or literal
-    lambda _1, a, _2: a,
-
-    identity_list,
+    lambda _1, a, _2: a,  # record type or literal
+    lambda _1, a, _2: a,  # union type or literal
     identity_list,
     identity,  # identifier or builtin
 
@@ -159,6 +157,38 @@ actions['record-type-or-literal'] = [
 
 actions['non-empty-list-literal'] = [
     lambda _1, expr, exprs, _2: ast.ListLiteral([expr] + collect(exprs, 1)),
+]
+
+
+def _make_nonempty_union_type_or_literal(c):
+    label_and_value = None
+    types = []
+
+    while True:
+        label, op, expr, tail = c
+        op = op[0]
+        if op == ':':
+            types.append((label, expr))
+            if tail == []:
+                break
+            else:
+                c = tail[1]
+        elif op == '=':
+            label_and_value = (label, expr)
+            types.extend(collect_many(tail, [1, 3]))
+            break
+        else:
+            assert False
+
+    if label_and_value is None:
+        return ast.UnionType(types)
+    else:
+        return ast.Union(*label_and_value, types)
+
+
+actions['union-type-or-literal'] = [
+    _make_nonempty_union_type_or_literal,
+    lambda: ast.UnionType([]),
 ]
 
 actions['builtin-or-identifier'] = [
