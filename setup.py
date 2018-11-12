@@ -62,7 +62,7 @@ setup(
         'parameterized',
     ] + requirements,
     dependency_links=[
-        'https://github.com/SupraSummus/parglare/archive/361152b35890289ccebaf55845c61f4a8d02e024.zip#egg=parglare'
+        'https://github.com/SupraSummus/parglare/archive/4d8023eb42e2466474c46b425f2c7fd64fb22e38.zip#egg=parglare'
     ],
     cmdclass={
         'build': custom_build,

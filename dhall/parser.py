@@ -28,27 +28,17 @@ def identity_list(*a):
     return a
 
 
-def collect_pairs(c, a_index, b_index):
-    pairs = []
-    # increase by 1 to account for the first, recursive segment
-    a_index += 1
-    b_index += 1
+def collect_many(c, indexes):
+    items = []
     while len(c) != 0:
-        pairs.append((c[a_index], c[b_index]))
+        items.append(tuple(c[i + 1] for i in indexes))
         c = c[0]
-    pairs.reverse()
-    return pairs
+    items.reverse()
+    return items
 
 
 def collect(c, i):
-    r = []
-    # increase by 1 to account for the first, recursive segment
-    i += 1
-    while len(c) != 0:
-        r.append(c[i])
-        c = c[0]
-    r.reverse()
-    return r
+    return [e[0] for e in collect_many(c, (i,))]
 
 
 def _operator_wrapper(f):
@@ -75,7 +65,10 @@ actions['expression'] = [
     # conditional
     lambda _1, condition, _2, if_true, _3, if_false: ast.Conditional(condition, if_true, if_false),
     # let .. = .. in ..
-    lambda _1, label, maybe_type, _2, value, _3, expr: ast.LetIn(label, maybe_type, value, expr),
+    lambda _let, label, maybe_type, _eq, value, more_lets, _in, expr: ast.LetIn(
+        [(label, maybe_type, value)] + collect_many(more_lets, [1, 2, 4]),
+        expr,
+    ),
     # forall
     lambda _1, _2, label, _3, typ, _4, _5, expr: ast.ForAll(label, typ, expr),
     # arrow
@@ -135,6 +128,10 @@ actions['primitive-expression'] = [
     identity_list,
     identity_list,
     identity_list,
+
+    # -infinity
+    lambda _1, _2: float('-inf'),
+
     identity_list,
 
     # record type or literal
@@ -151,8 +148,8 @@ actions['primitive-expression'] = [
 actions['record-type-or-literal'] = [
     lambda _: ast.RecordLiteral({}),
     lambda: ast.RecordType({}),
-    lambda label, _, e, c: ast.RecordType([(label, e)] + collect_pairs(c, 1, 3)),
-    lambda label, _, e, c: ast.RecordLiteral([(label, e)] + collect_pairs(c, 1, 3)),
+    lambda label, _, e, c: ast.RecordType([(label, e)] + collect_many(c, [1, 3])),
+    lambda label, _, e, c: ast.RecordLiteral([(label, e)] + collect_many(c, [1, 3])),
 ]
 
 actions['non-empty-list-literal'] = [

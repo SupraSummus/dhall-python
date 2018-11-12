@@ -22,9 +22,11 @@ class Conditional(Expression):
 
 @dataclass
 class LetIn(Expression):
-    parameter_label: str
-    parameter_type: Expression
-    parameter_value: Expression
+    parameters: [(
+        str,  # name
+        Expression,  # value
+        Optional[Expression],  # type
+    )]
     expression: Expression
 
 
