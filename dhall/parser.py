@@ -92,7 +92,7 @@ actions['oprator-expression'] = [identity]
 for name, wrapper in {
     # 'import-alt-expression': None,
     # 'or-expression': None,
-    # 'plus-expression': None,
+    'plus-expression': ast.Plus,
     # 'text-append-expression': None,
     'list-append-expression': ast.ListAppendExpression,
     # 'and-expression': None,
@@ -103,13 +103,11 @@ for name, wrapper in {
     # 'equal-expression': None,
     # 'not-equal-expression': None,
     'application-expression': ast.ApplicationExpression,
-    'selector-expression': ast.SelectorExpression,
 }.items():
     actions[name] = [
         identity,
         _operator_wrapper(wrapper),
     ]
-
 
 actions['constructors-or-some-expression'] = [
     # TODO
@@ -119,9 +117,16 @@ actions['constructors-or-some-expression'] = [
     lambda a, b: (a, b) if a != [] else b,
 ]
 
-actions['import-expresstion'] = [
+actions['import-expression'] = [
     ast.ImportExpression,
     identity,
+]
+
+actions['selector-expression'] = [
+    identity,
+    lambda expr, _, label: ast.SelectExpression(expr, label),
+    lambda expr, _1, _2: ast.ProjectionExpression(expr, []),
+    lambda expr, _1, _2, label, labels, _3: ast.ProjectionExpression(expr, [label] + collect(labels, 1)),
 ]
 
 actions['primitive-expression'] = [
@@ -139,7 +144,7 @@ actions['primitive-expression'] = [
 
     identity_list,
     identity_list,
-    identity_list,
+    identity,  # identifier or builtin
 
     # ordinary parentesis
     lambda _1, a, _2: a,
@@ -156,9 +161,8 @@ actions['non-empty-list-literal'] = [
     lambda _1, expr, exprs, _2: ast.ListLiteral([expr] + collect(exprs, 1)),
 ]
 
-
-actions['identifier'] = [
-    lambda a: ast.Identifier(a, 0),
+actions['builtin-or-identifier'] = [
+    lambda a: ast.make_builtin_or_identifier(a),
     lambda a, _1, scope_num, _2: ast.Identifier(a, scope_num),
 ]
 
@@ -186,3 +190,10 @@ with timeit('making parser'):
         table=parglare.tables.persist.table_from_serializable(parse_table, _grammar),
         actions=_actions,
     )
+
+
+def load(filename):
+    with open(filename, 'rt') as f:
+        trees = parser.parse(f.read())
+    assert len(trees) == 1  # GLR parser can return multiple trees when there is ambiguity
+    return trees[0]

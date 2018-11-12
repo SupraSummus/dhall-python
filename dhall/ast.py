@@ -1,9 +1,13 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 
 
+@dataclass
 class Expression:
-    pass
+    def type(self):
+        """Type of this expression"""
+        # TODO there will be context passed as a parameter later, propably
+        raise NotImplementedError()
 
 
 @dataclass
@@ -67,15 +71,42 @@ class MergeExpression(BinaryOperatorExpression):
     pass
 
 
+class Plus(BinaryOperatorExpression):
+    pass
+
+
 @dataclass
 class ImportExpression(Expression):
     source: Any
 
 
 @dataclass
-class SelectorExpression(Expression):
+class SelectExpression(Expression):
+    """Select a field from a record"""
+    expression: Expression
+    label: str
+
+    def type(self):
+        expression_type = self.expression.type()
+        if not isinstance(expression_type, RecordType):
+            raise TypeError('expresion to select fields from must be a record')
+        return expression_type.fields_dict[self.label]
+
+
+@dataclass
+class ProjectionExpression(Expression):
+    """Select few field from a record and make a new record out of them"""
     expression: Expression
     labels: [str]
+
+    def type(self):
+        expression_type = self.expression.type()
+        if not isinstance(expression_type, RecordType):
+            raise TypeError('expresion to select fields from must be a record')
+        return RecordType([
+            (l, expression_type.fields_dict[self.label])
+            for l in self.labels
+        ])
 
 
 # literals
@@ -90,6 +121,12 @@ class ListLiteral(Expression):
 class RecordLiteral(Expression):
     fields: [(str, Expression)]
 
+    def type(self):
+        return RecordType([
+            (l, val.type())
+            for l, val in self.fields
+        ])
+
 
 @dataclass
 class OptionalLiteral(Expression):
@@ -102,6 +139,44 @@ class Identifier(Expression):
     scope: Optional[int]
 
 
+class BuiltinNotImplemented(Expression):
+    pass
+
+
+class TextBuiltin(Expression):
+    def type(self):
+        return TypeBuiltin()
+
+
+class TypeBuiltin(Expression):
+    pass
+
+
+builtins = {
+    'Bool': BuiltinNotImplemented,
+    'Optional': BuiltinNotImplemented,
+    'None': BuiltinNotImplemented,
+    'Natural': BuiltinNotImplemented,
+    'Integer': BuiltinNotImplemented,
+    'Double': BuiltinNotImplemented,
+    'Text': TextBuiltin,
+    'List': BuiltinNotImplemented,
+    'True': BuiltinNotImplemented,
+    'False': BuiltinNotImplemented,
+    'NaN': BuiltinNotImplemented,
+    'Infinity': BuiltinNotImplemented,
+    'Type': TypeBuiltin,
+    'Kind': BuiltinNotImplemented,
+    'Sort': BuiltinNotImplemented,
+}
+
+
+def make_builtin_or_identifier(name):
+    if name in builtins:
+        return builtins[name]()
+    return Identifier(name, None)
+
+
 # types
 
 
@@ -112,7 +187,11 @@ class ListType(Expression):
 
 @dataclass
 class RecordType(Expression):
-    fields: Dict[str, Expression]
+    fields: [(str, Expression)]
+
+    @property
+    def fields_dict(self):
+        return dict(self.fields)
 
 
 @dataclass

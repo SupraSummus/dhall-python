@@ -1,4 +1,4 @@
-from dhall.parglare_adapter import to_parglare_grammar
+from parglare_adapter import to_parglare_grammar
 from parglare.tables import create_table, LALR
 from parglare.tables.persist import table_to_serializable
 from tools import timeit

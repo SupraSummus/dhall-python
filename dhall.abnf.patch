@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-12 17:50:06.231587221 +0100
++++ dhall.abnf	2018-11-12 21:56:44.015836503 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -114,7 +114,7 @@
 -
 -identifier-reserved-namespaced-prefix =
 -    reserved-namespaced-raw 1*(ALPHA / DIGIT / "-" / "/" / "_") whitespace [ at natural-raw whitespace ]
-+identifier = label / label at natural-raw whitespace
++builtin-or-identifier = label / label at natural-raw whitespace
  
  missing = missing-raw whitespace
  
@@ -192,16 +192,19 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +570,7 @@
+@@ -647,7 +570,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
 -selector-expression = primitive-expression *(dot ( label / labels ))
-+selector-expression = primitive-expression / selector-expression dot ( label / labels )
++selector-expression = primitive-expression
++                    / selector-expression dot label
++                    / selector-expression dot open-brace close-brace
++                    / selector-expression dot open-brace label *(comma label) close-brace
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,19 +610,6 @@
+@@ -687,38 +613,18 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
@@ -220,9 +223,14 @@
 -
      ; "x"
      ; "x@2"
-     / identifier
-@@ -711,14 +621,9 @@
+-    / identifier
++    / builtin-or-identifier
  
+     ; "( e )"
+     / open-parens expression close-parens
+ 
+-labels = open-brace (  label *(comma label) / "" ) close-brace
+-
  record-type-or-literal =
        equal                             ; Empty record literal
 -    / non-empty-record-type-or-literal

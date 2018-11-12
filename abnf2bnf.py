@@ -1,7 +1,7 @@
 import parglare
 
 from tools import timeit
-from dhall.parglare_adapter import to_parglare_grammar
+from parglare_adapter import to_parglare_grammar
 from grammar_desugaring import (
     StringTerminal, RangeTerminal, Name,
     Sequence, Alternative, Optional, RangeRepetition, ExactRepetition,
