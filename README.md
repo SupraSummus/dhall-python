@@ -2,6 +2,7 @@ Dhall for python
 ================
 
 [![Build Status](https://travis-ci.com/SupraSummus/dhall-python.svg?branch=master)](https://travis-ci.com/SupraSummus/dhall-python)
+[![codecov](https://codecov.io/gh/SupraSummus/dhall-python/branch/master/graph/badge.svg)](https://codecov.io/gh/SupraSummus/dhall-python)
 
 Pure python implementation of dhall language.
 
