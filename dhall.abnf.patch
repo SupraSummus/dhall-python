@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-10-28 13:45:12.120838960 +0100
-+++ dhall.abnf	2018-11-11 22:10:16.519241015 +0100
++++ dhall.abnf	2018-11-12 12:21:02.247032001 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -12,6 +12,15 @@
  
  ; Uppercase or lowercase ASCII letter
  ALPHA = %x41-5A / %x61-7A
+@@ -126,7 +126,7 @@
+ ; ASCII digit
+ DIGIT = %x30-39  ; 0-9
+ 
+-HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
++HEXDIG = DIGIT / %x41-46 / %x61-66
+ 
+ simple-label = (ALPHA / "_") *(ALPHA / DIGIT / "-" / "/" / "_")
+ 
 @@ -237,77 +237,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65

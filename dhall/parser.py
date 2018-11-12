@@ -24,6 +24,10 @@ def identity(a):
     return a
 
 
+def identity_list(*a):
+    return a
+
+
 def collect_pairs(c, a_index, b_index):
     pairs = []
     # increase by 1 to account for the first, recursive segment
@@ -128,17 +132,17 @@ actions['import-expresstion'] = [
 ]
 
 actions['primitive-expression'] = [
-    identity,
-    identity,
-    identity,
-    identity,
+    identity_list,
+    identity_list,
+    identity_list,
+    identity_list,
 
     # record type or literal
     lambda _1, a, _2: a,
 
-    identity,
-    identity,
-    identity,
+    identity_list,
+    identity_list,
+    identity_list,
 
     # ordinary parentesis
     lambda _1, a, _2: a,
@@ -146,7 +150,7 @@ actions['primitive-expression'] = [
 
 actions['record-type-or-literal'] = [
     lambda _: ast.RecordLiteral({}),
-    lambda _: ast.RecordType({}),
+    lambda: ast.RecordType({}),
     lambda label, _, e, c: ast.RecordType([(label, e)] + collect_pairs(c, 1, 3)),
     lambda label, _, e, c: ast.RecordLiteral([(label, e)] + collect_pairs(c, 1, 3)),
 ]
@@ -158,13 +162,16 @@ actions['non-empty-list-literal'] = [
 
 actions['identifier'] = [
     lambda a: ast.Identifier(a, 0),
-    lambda a, _, scope_num: ast.Identifier(a, scope_num),
+    lambda a, _1, scope_num, _2: ast.Identifier(a, scope_num),
 ]
 
 
 def _actions_wrapper(f):
-    def wrapped(_, c):
-        return f(*c)
+    def wrapped(name, c):
+        try:
+            return f(*c)
+        except TypeError as e:
+            raise Exception('problem creating AST node {}'.format(name), e)
     return wrapped
 
 
