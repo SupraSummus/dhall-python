@@ -2,6 +2,9 @@ from typing import Any, Optional
 from dataclasses import dataclass
 
 
+unique = None  # TODO
+
+
 @dataclass
 class Expression:
     def type(self):
@@ -9,12 +12,29 @@ class Expression:
         # TODO there will be context passed as a parameter later, propably
         raise NotImplementedError()
 
+    def normalized(self, ctx):
+        """Perform alpha-normalization"""
+        raise NotImplementedError()
+
+    def evaluated(self):
+        """Parform beta-normalization"""
+        raise NotImplementedError()
+
 
 @dataclass
 class Lambda(Expression):
-    parameter_label: str
+    parameter_label: Optional[str]
     parameter_type: Expression
     expression: Expression
+
+    def normalized(self, ctx):
+        return Lambda(
+            None,
+            self.parameter_type.normalized(ctx),
+            self.expression.normalized(ctx.shadow({
+                self.parameter_name: None,
+            })),
+        )
 
 
 @dataclass
@@ -23,15 +43,40 @@ class Conditional(Expression):
     if_true: Expression
     if_false: Expression
 
+    def normalized(self, ctx):
+        return Conditional(
+            self.condition.normalized(ctx),
+            self.if_true.normalized(ctx),
+            self.if_false.normalized(ctx),
+        )
+
 
 @dataclass
 class LetIn(Expression):
     parameters: [(
-        str,  # name
+        Optional[str],  # name
         Expression,  # value
         Optional[Expression],  # type
     )]
     expression: Expression
+
+    def normalized(self, ctx):
+        normalized_parameters = [
+            (
+                None,
+                value.normalize(ctx),
+                None if typ is None else typ.normalized(ctx),
+            )
+            for name, value, typ in self.parameters
+        ]
+        new_ctx = ctx.shadow({
+            name: None
+            for name, value, typ in self.parameters
+        })
+        return LetIn(
+            normalized_parameters,
+            self.expression.normalized(new_ctx),
+        )
 
 
 @dataclass
@@ -39,6 +84,23 @@ class ForAll(Expression):
     parameter_label: str
     parameter_type: Expression
     expression: Expression
+
+
+@dataclass
+class Variable(Expression):
+    name: str
+    scope: int = 0
+
+    def normalize(self, ctx):
+        if ctx.has(self.name, self.scope):
+            # bound variable
+            return Variable(
+                ctx.get(self.name, self.scope),
+                ctx.age(self.name, self.scope),
+            )
+        else:
+            # free variable
+            return self
 
 
 # TODO delete - it's sugar for ForAll
@@ -160,12 +222,6 @@ class OptionalLiteral(Expression):
     wrapped: Optional[Expression]
 
 
-@dataclass
-class Identifier(Expression):
-    name: str
-    scope: Optional[int]
-
-
 class BuiltinNotImplemented(Expression):
     pass
 
@@ -203,10 +259,10 @@ builtins = {
 }
 
 
-def make_builtin_or_identifier(name):
+def make_builtin_or_variable(name):
     if name in builtins:
         return builtins[name]()
-    return Identifier(name, None)
+    return Variable(name)
 
 
 # types

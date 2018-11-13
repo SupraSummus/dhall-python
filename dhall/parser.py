@@ -192,8 +192,8 @@ actions['union-type-or-literal'] = [
 ]
 
 actions['builtin-or-identifier'] = [
-    lambda a: ast.make_builtin_or_identifier(a),
-    lambda a, _1, scope_num, _2: ast.Identifier(a, scope_num),
+    lambda a: ast.make_builtin_or_variable(a),
+    lambda a, _1, scope_num, _2: ast.Variable(a, scope_num),
 ]
 
 
