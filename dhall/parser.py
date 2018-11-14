@@ -1,7 +1,7 @@
-from tools import timeit
 import parglare
 
 from . import ast
+from .tools import timeit
 from .parglare_adapter import to_parglare_grammar
 
 
