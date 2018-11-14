@@ -29,5 +29,5 @@ class TypecheckSuccessSimpleTestCase(TestCase):
         assert len(paths) == 2  # sanity check
         val = dhall.parser.load(paths['A'])
         typ = dhall.parser.load(paths['B'])
-        print(val, typ)
-        self.assertEqual(val.type(), typ)
+        annotation = dhall.ast.TypeAnnotation(val, typ)
+        annotation.type()

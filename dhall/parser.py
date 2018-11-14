@@ -71,18 +71,18 @@ actions['expression'] = [
     ),
     # forall
     lambda _1, _2, label, _3, typ, _4, _5, expr: ast.ForAll(label, typ, expr),
-    lambda a, _, b: ast.ForAll(None, a, b),
+    lambda a, _, b: ast.ForAll(ast.DEFAULT_VARIABLE_NAME, a, b),
     identity,
 ]
 actions['annotated-expression'] = [
     lambda _, a, b: ast.MergeExpression(a, b),
-    lambda _1, a, b, _2, t: ast.TypeBound(ast.MergeExpression(a, b), t),
+    lambda _1, a, b, _2, t: ast.TypeAnnotation(ast.MergeExpression(a, b), t),
 
-    lambda _1, _2, _3, _4, t: ast.TypeBound(ast.ListLiteral([]), ast.ListType(t)),
-    lambda _1, _2, _3, _4, t: ast.TypeBound(ast.OptionalLiteral(None), ast.OptionalType(t)),
-    lambda _1, e, _2, _3, _4, t: ast.TypeBound(ast.OptionalLiteral(e), ast.OptionalType(t)),
+    lambda _1, _2, _3, _4, t: ast.TypeAnnotation(ast.ListLiteral([]), ast.ListType(t)),
+    lambda _1, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(None), ast.OptionalType(t)),
+    lambda _1, e, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(e), ast.OptionalType(t)),
 
-    lambda expr, _, typ: ast.TypeBound(expr, typ),
+    lambda expr, _, typ: ast.TypeAnnotation(expr, typ),
     identity,
 ]
 actions['oprator-expression'] = [identity]

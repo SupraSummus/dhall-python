@@ -1,24 +1,43 @@
 from typing import Any, Optional
 from dataclasses import dataclass
 
+from .data_structures import ShadowDict
 
-unique = None  # TODO
+
+def unique(elements):
+    return len(elements) == len(set(elements))
+
+
+def function_check(a, b):
+    # TODO
+    pass
+
+
+CTX_EMPTY = ShadowDict()
+DEFAULT_VARIABLE_NAME = '_'
 
 
 @dataclass
 class Expression:
-    def type(self):
-        """Type of this expression"""
-        # TODO there will be context passed as a parameter later, propably
-        raise NotImplementedError()
+    def type(self, ctx=CTX_EMPTY):
+        """Type of this expression. ctx contains types for variables."""
+        raise NotImplementedError('{}.type() is not implemented yet'.format(self.__class__))
 
-    def normalized(self, ctx):
-        """Perform alpha-normalization"""
-        raise NotImplementedError()
+    def normalized(self, ctx=CTX_EMPTY):
+        """Perform alpha-normalization. ctx contains new names for variables."""
+        raise NotImplementedError('{}.normalized() is not implemented yet'.format(self.__class__))
 
-    def evaluated(self):
-        """Parform beta-normalization"""
-        raise NotImplementedError()
+    def evaluated(self, ctx=CTX_EMPTY):
+        """Perform beta-normalization. ctx contains variable values."""
+        raise NotImplementedError('{}.evaluated() is not implemented yet'.format(self.__class__))
+
+
+class AlreadyNormalizedMixin:
+    def normalized(self, ctx=CTX_EMPTY):
+        return self
+
+    def evaluated(self, ctx=CTX_EMPTY):
+        return self
 
 
 @dataclass
@@ -27,7 +46,7 @@ class Lambda(Expression):
     parameter_type: Expression
     expression: Expression
 
-    def normalized(self, ctx):
+    def normalized(self, ctx=CTX_EMPTY):
         return Lambda(
             None,
             self.parameter_type.normalized(ctx),
@@ -43,7 +62,7 @@ class Conditional(Expression):
     if_true: Expression
     if_false: Expression
 
-    def normalized(self, ctx):
+    def normalized(self, ctx=CTX_EMPTY):
         return Conditional(
             self.condition.normalized(ctx),
             self.if_true.normalized(ctx),
@@ -60,7 +79,7 @@ class LetIn(Expression):
     )]
     expression: Expression
 
-    def normalized(self, ctx):
+    def normalized(self, ctx=CTX_EMPTY):
         normalized_parameters = [
             (
                 None,
@@ -81,9 +100,33 @@ class LetIn(Expression):
 
 @dataclass
 class ForAll(Expression):
-    parameter_label: Optional[str]
+    parameter_label: str
     parameter_type: Expression
     expression: Expression
+
+    def type(self, ctx=CTX_EMPTY):
+        parameter_type_type = self.parameter_type.type(ctx)
+        expression_type = self.expression.type(ctx.shadow({
+            self.parameter_label: self.parameter_type
+        }))
+        function_check(parameter_type_type, expression_type)
+        return expression_type
+
+    def normalized(self, ctx=CTX_EMPTY):
+        return ForAll(
+            DEFAULT_VARIABLE_NAME,
+            self.parameter_type.normalized(ctx),
+            self.expression.normalized(ctx.shadow({
+                self.parameter_label: DEFAULT_VARIABLE_NAME,
+            })),
+        )
+
+    def evaluated(self, ctx=CTX_EMPTY):
+        return ForAll(
+            self.parameter_label,
+            self.parameter_type.evaluated(ctx),
+            self.expression.evaluated(ctx),
+        )
 
 
 @dataclass
@@ -91,7 +134,7 @@ class Variable(Expression):
     name: str
     scope: int = 0
 
-    def normalize(self, ctx):
+    def normalized(self, ctx=CTX_EMPTY):
         if ctx.has(self.name, self.scope):
             # bound variable
             return Variable(
@@ -104,9 +147,17 @@ class Variable(Expression):
 
 
 @dataclass
-class TypeBound(Expression):
+class TypeAnnotation(Expression):
     expression: Expression
     expression_type: Expression
+
+    def type(self, ctx=CTX_EMPTY):
+        self.expression_type.type(ctx)  # the type itself typechecks
+        typ = self.expression.type(ctx).evaluated().normalized()
+        annotated_type = self.expression_type.evaluated().normalized()
+        if annotated_type != typ:
+            raise TypeError('annotation {} doesn\'t match expression type {}'.format(annotated_type, typ))
+        return self.expression_type
 
 
 @dataclass
@@ -142,20 +193,22 @@ class SelectExpression(Expression):
     expression: Expression
     label: str
 
-    def type(self):
+    def type(self, ctx=CTX_EMPTY):
         if isinstance(self.expression, UnionType):
-            self.expression.type()
+            # select from union type yields an union constructor
+            self.expression.type(ctx)
             return ForAll(
-                None,
+                DEFAULT_VARIABLE_NAME,
                 self.expression.alternatives_dict[self.label],
                 self.expression,
             )
 
         if isinstance(self.expression, RecordLiteral):
-            self.expression.type()
-            return self.expression.fields_dict[self.label].type()
+            # select from a record yields record field value
+            self.expression.type(ctx)
+            return self.expression.fields_dict[self.label].type(ctx)
 
-        raise TypeError('Can\'t select type from {}'.format(self.expression))
+        raise TypeError('Can\'t select from {}'.format(self.expression))
 
 
 @dataclass
@@ -164,8 +217,8 @@ class ProjectionExpression(Expression):
     expression: Expression
     labels: [str]
 
-    def type(self):
-        expression_type = self.expression.type()
+    def type(self, ctx=CTX_EMPTY):
+        expression_type = self.expression.type(ctx)
         if not isinstance(expression_type, RecordType):
             raise TypeError('expresion to select fields from must be a record')
         return RecordType([
@@ -186,9 +239,9 @@ class ListLiteral(Expression):
 class RecordLiteral(Expression):
     fields: [(str, Expression)]
 
-    def type(self):
+    def type(self, ctx=CTX_EMPTY):
         return RecordType([
-            (l, val.type())
+            (l, val.type(ctx))
             for l, val in self.fields
         ])
 
@@ -203,11 +256,11 @@ class Union(Expression):
     value: Expression
     alternatives: [(str, Expression)]
 
-    def type(self):
+    def type(self, ctx=CTX_EMPTY):
         if not unique([self.label] + [a[0] for a in self.alternatives]):
             raise TypeError('nonunique union labels')
         # TODO verify that all expressions are types
-        return UnionType([(self.label, self.value.type())] + self.alternatives)
+        return UnionType([(self.label, self.value.type(ctx))] + self.alternatives)
 
 
 @dataclass
@@ -219,18 +272,34 @@ class BuiltinNotImplemented(Expression):
     pass
 
 
-class NaturalBuiltin(Expression):
-    def type(self):
+@dataclass(frozen=True)
+class NaturalBuiltin(AlreadyNormalizedMixin, Expression):
+    def type(self, ctx=CTX_EMPTY):
         return TypeBuiltin()
 
 
-class TextBuiltin(Expression):
-    def type(self):
+@dataclass(frozen=True)
+class TextBuiltin(AlreadyNormalizedMixin, Expression):
+    def type(self, ctx=CTX_EMPTY):
         return TypeBuiltin()
 
 
-class TypeBuiltin(Expression):
-    pass
+@dataclass(frozen=True)
+class TypeBuiltin(AlreadyNormalizedMixin, Expression):
+    def type(self, ctx=CTX_EMPTY):
+        return KindBuiltin()
+
+
+@dataclass(frozen=True)
+class KindBuiltin(AlreadyNormalizedMixin, Expression):
+    def type(self, ctx=CTX_EMPTY):
+        return SortBuiltin()
+
+
+@dataclass(frozen=True)
+class SortBuiltin(AlreadyNormalizedMixin, Expression):
+    def type(self, ctx=CTX_EMPTY):
+        raise TypeError('it\'s impossible to infer type of Sort')
 
 
 builtins = {
@@ -247,8 +316,8 @@ builtins = {
     'NaN': BuiltinNotImplemented,
     'Infinity': BuiltinNotImplemented,
     'Type': TypeBuiltin,
-    'Kind': BuiltinNotImplemented,
-    'Sort': BuiltinNotImplemented,
+    'Kind': KindBuiltin,
+    'Sort': SortBuiltin,
 }
 
 
@@ -282,6 +351,32 @@ class UnionType(Expression):
     @property
     def alternatives_dict(self):
         return dict(self.alternatives)
+
+    def type(self, ctx=CTX_EMPTY):
+        if not unique([a[0] for a in self.alternatives]):
+            raise TypeError('fields of union type must be unique')
+        if len(self.alternatives) == 0:
+            return TypeBuiltin()
+        typ = self.alternatives[0][1].type(ctx).evaluated()
+        if typ not in (TypeBuiltin(), KindBuiltin(), SortBuiltin()):
+            raise TypeError('only Types, Kind and Sorts are allowed for union type alternatives')
+        for a in self.alternatives[1:]:
+            alternative_typ = a[1].type(ctx).evaluated()
+            if typ != alternative_typ:
+                raise TypeError('all fields on union type must have the same type')
+        return typ
+
+    def normalized(self, ctx=CTX_EMPTY):
+        return UnionType([
+            (name, expr.normalized(ctx))
+            for name, expr in self.alternatives
+        ])
+
+    def evaluated(self, ctx=CTX_EMPTY):
+        return UnionType(sorted([
+            (name, expr.evaluated(ctx))
+            for name, expr in self.alternatives
+        ]))
 
 
 @dataclass
