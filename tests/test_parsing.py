@@ -1,6 +1,6 @@
 from unittest import TestCase
 from parameterized import parameterized
-from dhall.parser import parser
+from dhall import parser
 import os
 
 
@@ -15,5 +15,4 @@ class DhallHaskellParsingTestCase(TestCase):
 
     @parameterized.expand(test_files)
     def test_parsing(self, filename):
-        with open(os.path.join(self.tests_directory, filename), 'rt') as f:
-            parser.parse(f.read())
+        parser.load(os.path.join(self.tests_directory, filename))
