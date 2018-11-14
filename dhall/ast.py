@@ -81,7 +81,7 @@ class LetIn(Expression):
 
 @dataclass
 class ForAll(Expression):
-    parameter_label: str
+    parameter_label: Optional[str]
     parameter_type: Expression
     expression: Expression
 
@@ -101,13 +101,6 @@ class Variable(Expression):
         else:
             # free variable
             return self
-
-
-# TODO delete - it's sugar for ForAll
-@dataclass
-class Arrow(Expression):
-    a: Expression
-    b: Expression
 
 
 @dataclass

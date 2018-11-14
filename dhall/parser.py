@@ -71,8 +71,7 @@ actions['expression'] = [
     ),
     # forall
     lambda _1, _2, label, _3, typ, _4, _5, expr: ast.ForAll(label, typ, expr),
-    # arrow
-    lambda a, _, b: ast.Arrow(a, b),
+    lambda a, _, b: ast.ForAll(None, a, b),
     identity,
 ]
 actions['annotated-expression'] = [
