@@ -82,7 +82,7 @@ actions['annotated-expression'] = [
     lambda _1, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(None), ast.OptionalType(t)),
     lambda _1, e, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(e), ast.OptionalType(t)),
 
-    lambda expr, _, typ: ast.TypeAnnotation(expr, typ),
+    lambda expr, _1, _2, typ: ast.TypeAnnotation(expr, typ),
     identity,
 ]
 actions['oprator-expression'] = [identity]
@@ -224,5 +224,6 @@ with timeit('making parser'):
 def load(filename):
     with open(filename, 'rt') as f:
         trees = parser.parse(f.read())
-    assert len(trees) == 1  # GLR parser can return multiple trees when there is ambiguity
+    # GLR parser can return multiple trees when there is ambiguity
+    assert len(trees) == 1, "Ambiguity detected - got {} parses".format(len(trees))
     return trees[0]

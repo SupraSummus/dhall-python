@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-12 23:19:40.276144176 +0100
++++ dhall.abnf	2018-11-14 22:54:17.495087607 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -137,7 +137,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +531,34 @@
+@@ -607,35 +531,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -148,11 +148,12 @@
  
      ; "x : t"
 -    / operator-expression (colon expression / "")
--
++    ; whitespace chunk is not compliant with standard, but is needed to disambiguate from env: imports
++    / operator-expression colon whitespace-chunk expression
+ 
 -empty-collection = close-bracket colon (List / Optional) import-expression
 -
 -non-empty-optional = expression close-bracket colon Optional import-expression
-+    / operator-expression colon expression
 +    / operator-expression
  
  operator-expression = import-alt-expression
@@ -192,7 +193,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +570,10 @@
+@@ -647,7 +572,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -204,7 +205,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +613,26 @@
+@@ -687,48 +615,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
