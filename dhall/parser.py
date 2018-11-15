@@ -1,3 +1,5 @@
+import re
+
 import parglare
 
 from . import ast
@@ -52,7 +54,6 @@ actions = {}
 actions[start_symbol] = [lambda a, _: a]
 actions[original_start_symbol] = [lambda _, a: a]
 
-actions['simple-label'] = [concat_all]
 actions['quoted-label'] = [concat_all]
 actions['label'] = [lambda c, _ws: c if isinstance(c, str) else c[1]]
 
@@ -205,13 +206,35 @@ def _actions_wrapper(f):
     return wrapped
 
 
+def simple_label_recognizer(text, pos):
+    """detect simple labels by regexp, then reject keywords"""
+    match = re.match('[A-Za-z_][0-9A-Za-z\-/_]*', text[pos:])
+    if match is None:
+        return None
+    else:
+        name = match.group(0)
+    if name in [
+        'forall',
+        'if', 'then', 'else',
+        'let', 'in',
+        'missing', 'as',
+    ]:
+        return None
+    return name
+
+
 _actions = {
     k: [_actions_wrapper(f) for f in v]
     for k, v in actions.items()
 }
 
 with timeit('making parser'):
-    _grammar, _start = to_parglare_grammar(productions, terminals, original_start_symbol)
+    _grammar, _start = to_parglare_grammar(
+        productions, terminals, original_start_symbol,
+        recognizers={
+            'simple-label': simple_label_recognizer,
+        },
+    )
     assert _start == start_symbol
     parser = parglare.GLRParser(
         _grammar,

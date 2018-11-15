@@ -4,6 +4,16 @@ from parglare.tables.persist import table_to_serializable
 from tools import timeit
 
 
+def make_external_recognizers(productions, terminals, start, external_recognizers):
+    assert start not in external_recognizers
+    new_productions = dict(productions)
+    new_terminals = dict(terminals)
+    for n in external_recognizers:
+        del new_productions[n]
+        new_terminals[n] = ('external',)
+    return new_productions, new_terminals, start
+
+
 def bnf2parglare(productions, terminals, original_start):
     grammar, start = to_parglare_grammar(productions, terminals, original_start)
 

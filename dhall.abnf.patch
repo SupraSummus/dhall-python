@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-14 22:54:17.495087607 +0100
++++ dhall.abnf	2018-11-15 14:38:54.730562829 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -12,16 +12,21 @@
  
  ; Uppercase or lowercase ASCII letter
  ALPHA = %x41-5A / %x61-7A
-@@ -126,7 +126,7 @@
+@@ -126,9 +126,11 @@
  ; ASCII digit
  DIGIT = %x30-39  ; 0-9
  
 -HEXDIG = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
 +HEXDIG = DIGIT / %x41-46 / %x61-66
  
- simple-label = (ALPHA / "_") *(ALPHA / DIGIT / "-" / "/" / "_")
+-simple-label = (ALPHA / "_") *(ALPHA / DIGIT / "-" / "/" / "_")
++; simple label matches like described, but after that keywords are rejected
++; simple-label = (ALPHA / "_") *(ALPHA / DIGIT / "-" / "/" / "_")
++simple-label = ""  ; placeholder
  
-@@ -237,81 +237,10 @@
+ quoted-label = 1*(ALPHA / DIGIT / "-" / "/" / "_" / ":" / "." / "$")
+ 
+@@ -237,81 +239,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65
  constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
@@ -103,7 +108,7 @@
  
  ; Whitespaced rules for reserved words, to be used when matching expressions
  if           = if-raw           nonempty-whitespace
-@@ -370,13 +299,7 @@
+@@ -370,13 +301,7 @@
  
  natural-literal = natural-raw whitespace
  
@@ -118,7 +123,7 @@
  
  missing = missing-raw whitespace
  
-@@ -443,7 +366,7 @@
+@@ -443,7 +368,7 @@
  
  userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
  
@@ -127,7 +132,7 @@
  
  port = *DIGIT
  
-@@ -598,7 +521,8 @@
+@@ -598,7 +523,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -137,7 +142,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +531,36 @@
+@@ -607,35 +533,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -193,7 +198,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +572,10 @@
+@@ -647,7 +574,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -205,7 +210,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +615,26 @@
+@@ -687,48 +617,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
