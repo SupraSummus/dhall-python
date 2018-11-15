@@ -1,7 +1,7 @@
 import parglare
 
 
-def to_parglare_grammar(productions_dict, terminals_dict, start):
+def to_parglare_grammar(productions_dict, terminals_dict, start, **kwargs):
     """Make parglare Grammar object from plain description dicts.
      * productions_dict is a dictionary mapping nonterminal names into list of alternative productions equences
      * terminals_dict is a dictionary mapping terminal names into their definition
@@ -19,7 +19,11 @@ def to_parglare_grammar(productions_dict, terminals_dict, start):
     )
     """
     def make_terminal(name, t):
-        typ, val = t
+        typ = t[0]
+        if typ == 'external':
+            return parglare.Terminal(name=name)
+
+        val = t[1]
         if typ == 'string':
             recognizer_class = parglare.StringRecognizer
         elif typ == 'regexp':
@@ -65,4 +69,5 @@ def to_parglare_grammar(productions_dict, terminals_dict, start):
         productions=productions,
         terminals=terminals.values(),
         start_symbol=start_non_terminal,
+        **kwargs,
     ), '__start'

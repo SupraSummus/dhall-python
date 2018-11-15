@@ -19,7 +19,8 @@ def compile_parser():
     grammar = abnf2bnf(abnf_grammar, 'complete-expression')
 
     # calculate parse tables
-    from bnf2parglare import bnf2parglare
+    from bnf2parglare import bnf2parglare, make_external_recognizers
+    grammar = make_external_recognizers(*grammar, ['simple-label'])
     compiled_grammar = bnf2parglare(*grammar)
 
     # save into python
