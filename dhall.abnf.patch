@@ -1,6 +1,17 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-15 17:48:39.937934275 +0100
-@@ -116,9 +116,9 @@
++++ dhall.abnf	2018-11-15 20:52:38.441950841 +0100
+@@ -97,7 +97,9 @@
+ 
+ block-comment-chunk =
+       block-comment
+-    / %x20-10FFFF
++    / %x20-7a
++      ; %x7b = "{"
++    / %x7c-10FFFF
+     / tab
+     / end-of-line
+ 
+@@ -116,9 +118,9 @@
      / line-comment
      / block-comment
  
@@ -12,7 +23,7 @@
  
  ; Uppercase or lowercase ASCII letter
  ALPHA = %x41-5A / %x61-7A
-@@ -126,9 +126,11 @@
+@@ -126,9 +128,11 @@
  ; ASCII digit
  DIGIT = %x30-39  ; 0-9
  
@@ -26,7 +37,7 @@
  
  quoted-label = 1*(ALPHA / DIGIT / "-" / "/" / "_" / ":" / "." / "$")
  
-@@ -187,7 +189,9 @@
+@@ -187,7 +191,9 @@
      ; Printable characters except double quote and backslash
      / %x20-21
          ; %x22 = '"'
@@ -37,7 +48,7 @@
          ; %x5C = "\"
      / %x5D-10FFFF
  
-@@ -212,7 +216,9 @@
+@@ -212,7 +218,9 @@
        ; Escape interpolation (i.e. replace this sequence with "${")
      / "''${"              single-quote-continue
      / "''"                                       ; End of text literal
@@ -48,7 +59,7 @@
      / tab                 single-quote-continue
      / end-of-line         single-quote-continue
  
-@@ -237,81 +243,10 @@
+@@ -237,81 +245,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65
  constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
@@ -130,7 +141,7 @@
  
  ; Whitespaced rules for reserved words, to be used when matching expressions
  if           = if-raw           nonempty-whitespace
-@@ -370,13 +305,7 @@
+@@ -370,13 +307,7 @@
  
  natural-literal = natural-raw whitespace
  
@@ -145,7 +156,7 @@
  
  missing = missing-raw whitespace
  
-@@ -443,7 +372,7 @@
+@@ -443,7 +374,7 @@
  
  userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
  
@@ -154,7 +165,7 @@
  
  port = *DIGIT
  
-@@ -598,7 +527,8 @@
+@@ -598,7 +529,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -164,7 +175,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +537,36 @@
+@@ -607,35 +539,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -220,7 +231,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +578,10 @@
+@@ -647,7 +580,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -232,7 +243,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +621,26 @@
+@@ -687,48 +623,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  

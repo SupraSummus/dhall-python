@@ -218,6 +218,7 @@ def simple_label_recognizer(text, pos):
         'if', 'then', 'else',
         'let', 'in',
         'missing', 'as',
+        'constructors', 'Some', 'merge',
     ]:
         return None
     return name
