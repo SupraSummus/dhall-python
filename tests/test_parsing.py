@@ -14,5 +14,5 @@ class DhallHaskellParsingTestCase(TestCase):
     ]
 
     @parameterized.expand(test_files)
-    def test_parsing(self, filename):
+    def test(self, filename):
         parser.load(os.path.join(self.tests_directory, filename))

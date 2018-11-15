@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-15 16:56:08.711071927 +0100
++++ dhall.abnf	2018-11-15 17:48:39.937934275 +0100
 @@ -116,9 +116,9 @@
      / line-comment
      / block-comment
@@ -37,7 +37,18 @@
          ; %x5C = "\"
      / %x5D-10FFFF
  
-@@ -237,81 +241,10 @@
+@@ -212,7 +216,9 @@
+       ; Escape interpolation (i.e. replace this sequence with "${")
+     / "''${"              single-quote-continue
+     / "''"                                       ; End of text literal
+-    / %x20-10FFFF         single-quote-continue
++    / %x20-23             single-quote-continue
++      ; %x24 = "$"
++    / %x25-10FFFF         single-quote-continue
+     / tab                 single-quote-continue
+     / end-of-line         single-quote-continue
+ 
+@@ -237,81 +243,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65
  constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
@@ -119,7 +130,7 @@
  
  ; Whitespaced rules for reserved words, to be used when matching expressions
  if           = if-raw           nonempty-whitespace
-@@ -370,13 +303,7 @@
+@@ -370,13 +305,7 @@
  
  natural-literal = natural-raw whitespace
  
@@ -134,7 +145,7 @@
  
  missing = missing-raw whitespace
  
-@@ -443,7 +370,7 @@
+@@ -443,7 +372,7 @@
  
  userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
  
@@ -143,7 +154,7 @@
  
  port = *DIGIT
  
-@@ -598,7 +525,8 @@
+@@ -598,7 +527,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -153,7 +164,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +535,36 @@
+@@ -607,35 +537,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -209,7 +220,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +576,10 @@
+@@ -647,7 +578,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -221,7 +232,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +619,26 @@
+@@ -687,48 +621,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
