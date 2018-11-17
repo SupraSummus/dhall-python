@@ -2,6 +2,10 @@ from collections import namedtuple
 import re
 
 
+class DesugaringError(Exception):
+    pass
+
+
 class Empty:
     def to_productions(self, builder):
         return ((),)
@@ -171,8 +175,16 @@ class ProductionsBuilder:
                 return self.names[productions]
             else:
                 name = self.new_anonymous_name()
-        assert name not in self.productions_dict
-        assert productions not in self.names
+        if name in self.productions_dict:
+            raise DesugaringError("production for symbol {} are already defined".format(name))
+        if productions in self.names and productions != ((),):
+            raise DesugaringError(
+                "productions {} are already stored under name {} (trying to store them as {})".format(
+                    productions,
+                    self.names[productions],
+                    name,
+                ),
+            )
         self.productions_dict[name] = productions
         self.names[productions] = name
         return name
