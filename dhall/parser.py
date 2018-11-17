@@ -60,6 +60,16 @@ actions['label'] = [lambda c, _ws: c if isinstance(c, str) else c[1]]
 actions['natural-raw'] = [lambda f, c: int(f + ''.join(collect(c, 0)))]
 actions['natural-literal'] = [lambda a, _: a]
 
+actions['path-component'] = [concat_all]
+actions['query'] = [concat_all]
+actions['fragment'] = [concat_all]
+actions['scheme'] = [concat_all]
+actions['authority'] = [
+    concat_all,
+    concat_all,
+    concat_all,
+]
+
 actions['expression'] = [
     # lambda
     lambda _1, _2, label, _3, typ, _4, _5, expr: ast.Lambda(label, typ, expr),
