@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-15 20:52:38.441950841 +0100
++++ dhall.abnf	2018-11-17 10:19:43.300177441 +0100
 @@ -97,7 +97,9 @@
  
  block-comment-chunk =
@@ -156,16 +156,33 @@
  
  missing = missing-raw whitespace
  
-@@ -443,7 +374,7 @@
+@@ -439,11 +370,12 @@
+ http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
  
- userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
+ ; NOTE: Backtrack if parsing the optional user info prefix fails
+-authority = [ userinfo "@" ] host [ ":" port ]
+-
+-userinfo = *( unreserved / pct-encoded / sub-delims / ":" )
++authority = [ userinfo "@" ] IP-literal [ ":" port ]
++          / userinfo "@" userinfo userinfo-char
++          / userinfo userinfo-char
  
 -host = IP-literal / IPv4address / reg-name
-+host = IP-literal / reg-name
++userinfo-char = unreserved / pct-encoded / sub-delims / ":"
++userinfo = userinfo userinfo-char / ""
  
  port = *DIGIT
  
-@@ -598,7 +529,8 @@
+@@ -475,8 +407,6 @@
+           / "2" %x30-34 DIGIT  ; 200-249
+           / "25" %x30-35       ; 250-255
+ 
+-reg-name = *( unreserved / pct-encoded / sub-delims )
+-
+ pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
+ 
+ query = *( pchar / "/" / "?" )
+@@ -598,7 +528,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -175,7 +192,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +539,36 @@
+@@ -607,35 +538,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -186,11 +203,11 @@
  
      ; "x : t"
 -    / operator-expression (colon expression / "")
+-
+-empty-collection = close-bracket colon (List / Optional) import-expression
 +    ; whitespace chunk is not compliant with standard, but is needed to disambiguate from env: imports
 +    / operator-expression colon whitespace-chunk expression
  
--empty-collection = close-bracket colon (List / Optional) import-expression
--
 -non-empty-optional = expression close-bracket colon Optional import-expression
 +    / operator-expression
  
@@ -212,7 +229,7 @@
 +or-expression            = plus-expression          / or-expression or plus-expression
 +plus-expression          = text-append-expression   / plus-expression plus whitespace-chunk text-append-expression
 +text-append-expression   = list-append-expression   / text-append-expression text-append list-append-expression
-+list-append-expression   = and-expression           / list-append-expression list-append and-expression
++list-append-expression   = and-expression           / list-append-expression list-append whitespace-chunk and-expression
 +and-expression           = combine-expression       / and-expression and combine-expression
 +combine-expression       = prefer-expression        / combine-expression combine prefer-expression
 +prefer-expression        = combine-types-expression / prefer-expression prefer combine-types-expression
@@ -231,7 +248,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +580,10 @@
+@@ -647,7 +579,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -243,7 +260,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +623,26 @@
+@@ -687,48 +622,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
