@@ -22,10 +22,11 @@ class TypecheckSuccessSimpleTestCase(TestCase):
     tests = {
         '0': tests['0'],
         '1': tests['1'],
+        'alternativesAreTypes': tests['alternativesAreTypes'],
     }
 
     @parameterized.expand(sorted(tests.items()))
-    def test_typecheck_success(self, _name, paths):
+    def test(self, _name, paths):
         assert len(paths) == 2  # sanity check
         val = dhall.parser.load(paths['A'])
         typ = dhall.parser.load(paths['B'])

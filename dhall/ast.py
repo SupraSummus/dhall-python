@@ -32,14 +32,6 @@ class Expression:
         raise NotImplementedError('{}.evaluated() is not implemented yet'.format(self.__class__))
 
 
-class AlreadyNormalizedMixin:
-    def normalized(self, ctx=CTX_EMPTY):
-        return self
-
-    def evaluated(self, ctx=CTX_EMPTY):
-        return self
-
-
 @dataclass
 class Lambda(Expression):
     parameter_label: Optional[str]
@@ -267,39 +259,55 @@ class Union(Expression):
 class OptionalLiteral(Expression):
     wrapped: Optional[Expression]
 
-
-class BuiltinNotImplemented(Expression):
-    pass
+# ### builtins ###
 
 
 @dataclass(frozen=True)
-class NaturalBuiltin(AlreadyNormalizedMixin, Expression):
+class BuiltinExpression(Expression):
     def type(self, ctx=CTX_EMPTY):
-        return TypeBuiltin()
+        return self.builtin_type
+
+    def normalized(self, ctx=CTX_EMPTY):
+        return self
+
+    def evaluated(self, ctx=CTX_EMPTY):
+        return self
+
+
+class BuiltinNotImplemented(BuiltinExpression):
+    def __init__(self, *args, **kwargs):
+        raise NotImplementedError('builtin not yet implemented')
 
 
 @dataclass(frozen=True)
-class TextBuiltin(AlreadyNormalizedMixin, Expression):
-    def type(self, ctx=CTX_EMPTY):
-        return TypeBuiltin()
-
-
-@dataclass(frozen=True)
-class TypeBuiltin(AlreadyNormalizedMixin, Expression):
-    def type(self, ctx=CTX_EMPTY):
-        return KindBuiltin()
-
-
-@dataclass(frozen=True)
-class KindBuiltin(AlreadyNormalizedMixin, Expression):
-    def type(self, ctx=CTX_EMPTY):
-        return SortBuiltin()
-
-
-@dataclass(frozen=True)
-class SortBuiltin(AlreadyNormalizedMixin, Expression):
+class SortBuiltin(BuiltinExpression):
     def type(self, ctx=CTX_EMPTY):
         raise TypeError('it\'s impossible to infer type of Sort')
+
+
+@dataclass(frozen=True)
+class KindBuiltin(BuiltinExpression):
+    builtin_type = SortBuiltin()
+
+
+@dataclass(frozen=True)
+class TypeBuiltin(BuiltinExpression):
+    builtin_type = KindBuiltin()
+
+
+@dataclass(frozen=True)
+class NaturalBuiltin(BuiltinExpression):
+    builtin_type = TypeBuiltin()
+
+
+@dataclass(frozen=True)
+class TextBuiltin(BuiltinExpression):
+    builtin_type = TypeBuiltin()
+
+
+@dataclass(frozen=True)
+class ListBuiltin(BuiltinExpression):
+    builtin_type = ForAll(DEFAULT_VARIABLE_NAME, TypeBuiltin(), TypeBuiltin())
 
 
 builtins = {
@@ -310,7 +318,7 @@ builtins = {
     'Integer': BuiltinNotImplemented,
     'Double': BuiltinNotImplemented,
     'Text': TextBuiltin,
-    'List': BuiltinNotImplemented,
+    'List': ListBuiltin,
     'True': BuiltinNotImplemented,
     'False': BuiltinNotImplemented,
     'NaN': BuiltinNotImplemented,
