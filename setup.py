@@ -20,7 +20,10 @@ def compile_parser():
 
     # calculate parse tables
     from bnf2parglare import bnf2parglare, make_external_recognizers
-    grammar = make_external_recognizers(*grammar, ['simple-label'])
+    grammar = make_external_recognizers(*grammar, [
+        'simple-label',
+        'single-quote-regular-chunk',
+    ])
     compiled_grammar = bnf2parglare(*grammar)
 
     # save into python

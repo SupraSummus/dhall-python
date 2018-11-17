@@ -1,5 +1,5 @@
 --- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-17 10:19:43.300177441 +0100
++++ dhall.abnf	2018-11-17 11:56:18.517202260 +0100
 @@ -97,7 +97,9 @@
  
  block-comment-chunk =
@@ -48,18 +48,34 @@
          ; %x5C = "\"
      / %x5D-10FFFF
  
-@@ -212,7 +218,9 @@
-       ; Escape interpolation (i.e. replace this sequence with "${")
-     / "''${"              single-quote-continue
-     / "''"                                       ; End of text literal
+@@ -204,19 +210,14 @@
+ ;
+ ; If you try to end the string literal with a single quote then you get "'''",
+ ; which is interpreted as an escaped pair of single quotes
+-single-quote-continue =
+-      ; Escape two single quotes (i.e. replace this sequence with "''")
+-      "'''"               single-quote-continue
+-      ; Interpolation
+-    / "${" complete-expression "}" single-quote-continue
+-      ; Escape interpolation (i.e. replace this sequence with "${")
+-    / "''${"              single-quote-continue
+-    / "''"                                       ; End of text literal
 -    / %x20-10FFFF         single-quote-continue
-+    / %x20-23             single-quote-continue
-+      ; %x24 = "$"
-+    / %x25-10FFFF         single-quote-continue
-     / tab                 single-quote-continue
-     / end-of-line         single-quote-continue
+-    / tab                 single-quote-continue
+-    / end-of-line         single-quote-continue
++single-quote-regular-chunk = ""  ; placeholder
++single-quote-nonempty =
++      single-quote-nonempty single-quote-regular-chunk
++    / single-quote-regular-chunk
++    / single-quote-nonempty "${" complete-expression "}"
++    / "${" complete-expression "}"
  
-@@ -237,81 +245,10 @@
+-single-quote-literal = "''" single-quote-continue
++single-quote-literal = "''" single-quote-nonempty "''" / "''''"
+ 
+ text-literal = (double-quote-literal / single-quote-literal) whitespace
+ 
+@@ -237,81 +238,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65
  constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
@@ -141,7 +157,7 @@
  
  ; Whitespaced rules for reserved words, to be used when matching expressions
  if           = if-raw           nonempty-whitespace
-@@ -370,13 +307,7 @@
+@@ -370,13 +300,7 @@
  
  natural-literal = natural-raw whitespace
  
@@ -156,7 +172,7 @@
  
  missing = missing-raw whitespace
  
-@@ -439,11 +370,12 @@
+@@ -439,11 +363,12 @@
  http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
  
  ; NOTE: Backtrack if parsing the optional user info prefix fails
@@ -173,7 +189,7 @@
  
  port = *DIGIT
  
-@@ -475,8 +407,6 @@
+@@ -475,8 +400,6 @@
            / "2" %x30-34 DIGIT  ; 200-249
            / "25" %x30-35       ; 250-255
  
@@ -182,7 +198,7 @@
  pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
  
  query = *( pchar / "/" / "?" )
-@@ -598,7 +528,8 @@
+@@ -598,7 +521,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -192,7 +208,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +538,36 @@
+@@ -607,35 +531,36 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -248,7 +264,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +579,10 @@
+@@ -647,7 +572,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -260,7 +276,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +622,26 @@
+@@ -687,48 +615,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  

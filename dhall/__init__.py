@@ -1,4 +1,5 @@
 from . import parser
+from .parser import parse
 
 
-__all__ = ('parser',)
+__all__ = ('parse', 'parser')

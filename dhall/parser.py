@@ -218,7 +218,7 @@ def _actions_wrapper(f):
 
 def simple_label_recognizer(text, pos):
     """detect simple labels by regexp, then reject keywords"""
-    match = re.match('[A-Za-z_][0-9A-Za-z\-/_]*', text[pos:])
+    match = re.match(r'[A-Za-z_][0-9A-Za-z\-/_]*', text[pos:])
     if match is None:
         return None
     else:
@@ -234,6 +234,17 @@ def simple_label_recognizer(text, pos):
     return name
 
 
+single_quote_regular_chunk_recognizer = parglare.RegExRecognizer(
+    r'''(
+        ''\${  |  # escaped interpolation sequence
+        \$[^{']|  # $, but not an interpolation one
+        [^\$'] |  # anything but not a $ or '
+        \'\'\'    # escaped '
+    )+''',
+    name='single-quote-regular-chunk',
+    re_flags=re.VERBOSE | re.MULTILINE,
+)
+
 _actions = {
     k: [_actions_wrapper(f) for f in v]
     for k, v in actions.items()
@@ -244,6 +255,7 @@ with timeit('making parser'):
         productions, terminals, original_start_symbol,
         recognizers={
             'simple-label': simple_label_recognizer,
+            'single-quote-regular-chunk': single_quote_regular_chunk_recognizer,
         },
     )
     assert _start == start_symbol
@@ -255,9 +267,12 @@ with timeit('making parser'):
     )
 
 
+parse = parser.parse
+
+
 def load(filename):
     with open(filename, 'rt') as f:
-        trees = parser.parse(f.read())
+        trees = parse(f.read())
     # GLR parser can return multiple trees when there is ambiguity
     assert len(trees) == 1, "Ambiguity detected - got {} parses".format(len(trees))
     return trees[0]
