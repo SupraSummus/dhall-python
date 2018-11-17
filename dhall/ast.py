@@ -274,11 +274,6 @@ class BuiltinExpression(Expression):
         return self
 
 
-class BuiltinNotImplemented(BuiltinExpression):
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError('builtin not yet implemented')
-
-
 @dataclass(frozen=True)
 class SortBuiltin(BuiltinExpression):
     def type(self, ctx=CTX_EMPTY):
@@ -311,18 +306,18 @@ class ListBuiltin(BuiltinExpression):
 
 
 builtins = {
-    'Bool': BuiltinNotImplemented,
-    'Optional': BuiltinNotImplemented,
-    'None': BuiltinNotImplemented,
+    # 'Bool': BuiltinNotImplemented,
+    # 'Optional': BuiltinNotImplemented,
+    # 'None': BuiltinNotImplemented,
     'Natural': NaturalBuiltin,
-    'Integer': BuiltinNotImplemented,
-    'Double': BuiltinNotImplemented,
+    # 'Integer': BuiltinNotImplemented,
+    # 'Double': BuiltinNotImplemented,
     'Text': TextBuiltin,
     'List': ListBuiltin,
-    'True': BuiltinNotImplemented,
-    'False': BuiltinNotImplemented,
-    'NaN': BuiltinNotImplemented,
-    'Infinity': BuiltinNotImplemented,
+    # 'True': BuiltinNotImplemented,
+    # 'False': BuiltinNotImplemented,
+    # 'NaN': BuiltinNotImplemented,
+    # 'Infinity': BuiltinNotImplemented,
     'Type': TypeBuiltin,
     'Kind': KindBuiltin,
     'Sort': SortBuiltin,
