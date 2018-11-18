@@ -23,7 +23,7 @@ class ShadowDict(Generic[KT, VT]):
         return ShadowDict(new_entries, new_generation)
 
     def has(self, name: KT, scope: int = 0) -> bool:
-        return len(self.entries.get(name)) > scope
+        return len(self.entries.get(name, [])) > scope
 
     def get(self, name: KT, scope: int = 0) -> VT:
         return self.entries.get(name, pvector())[-scope - 1][0]

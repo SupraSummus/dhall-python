@@ -77,7 +77,10 @@ actions['expression'] = [
     lambda _1, condition, _2, if_true, _3, if_false: ast.Conditional(condition, if_true, if_false),
     # let .. = .. in ..
     lambda _let, label, maybe_type, _eq, value, more_lets, _in, expr: ast.LetIn(
-        [(label, maybe_type, value)] + collect_many(more_lets, [1, 2, 4]),
+        [
+            (l, v, None if len(t) == 0 else t[1])
+            for l, v, t in [(label, value, maybe_type)] + collect_many(more_lets, [1, 4, 2])
+        ],
         expr,
     ),
     # forall

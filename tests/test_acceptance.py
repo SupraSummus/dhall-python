@@ -23,6 +23,7 @@ class TypecheckSuccessSimpleTestCase(TestCase):
         '0': tests['0'],
         '1': tests['1'],
         'alternativesAreTypes': tests['alternativesAreTypes'],
+        'anonymousFunctionsInTypes': tests['anonymousFunctionsInTypes'],
     }
 
     @parameterized.expand(sorted(tests.items()))
