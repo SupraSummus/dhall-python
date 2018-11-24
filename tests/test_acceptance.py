@@ -16,6 +16,17 @@ def get_tests(dir_path):
     return tests
 
 
+class ParserSuccessTestCase(TestCase):
+    tests = get_tests('./dhall-lang/tests/parser/success/')
+
+    @parameterized.expand(sorted(tests.items()))
+    def test(self, _name, paths):
+        assert len(paths) == 2  # sanity check
+        # check if parser accepts the string
+        # TODO check against CBOR
+        dhall.parser.load(paths['A'])
+
+
 class TypecheckSuccessSimpleTestCase(TestCase):
     tests = get_tests('./dhall-lang/tests/typecheck/success/simple/')
     # select tests - we dont have full typechecker yet

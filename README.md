@@ -16,7 +16,6 @@ Pure python implementation of [dhall](https://github.com/dhall-lang/dhall-lang) 
 Details:
  * parsing is done using [parglare](https://github.com/igordejanovic/parglare) GLR parser library
  * acceptance tests comes from dhall-lang repository
- * parser tests comes form dhall-haskell repository
 
 abnf2bnf.py
 -----------

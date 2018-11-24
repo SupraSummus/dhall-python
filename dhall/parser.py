@@ -96,7 +96,7 @@ actions['annotated-expression'] = [
     lambda _1, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(), ast.OptionalType(t)),
     lambda _1, e, _2, _3, _4, t: ast.TypeAnnotation(ast.OptionalLiteral(e), ast.OptionalType(t)),
 
-    lambda expr, _1, _2, typ: ast.TypeAnnotation(expr, typ),
+    lambda expr, _1, typ: ast.TypeAnnotation(expr, typ),
     identity,
 ]
 actions['oprator-expression'] = [identity]

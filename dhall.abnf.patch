@@ -1,6 +1,6 @@
---- dhall-lang/standard/dhall.abnf	2018-11-12 17:44:28.664899680 +0100
-+++ dhall.abnf	2018-11-17 11:56:18.517202260 +0100
-@@ -97,7 +97,9 @@
+--- dhall-lang/standard/dhall.abnf	2018-11-24 12:47:42.310502783 +0100
++++ dhall.abnf	2018-11-24 12:56:23.450535111 +0100
+@@ -110,7 +110,9 @@
  
  block-comment-chunk =
        block-comment
@@ -11,7 +11,7 @@
      / tab
      / end-of-line
  
-@@ -116,9 +118,9 @@
+@@ -129,9 +131,9 @@
      / line-comment
      / block-comment
  
@@ -23,7 +23,7 @@
  
  ; Uppercase or lowercase ASCII letter
  ALPHA = %x41-5A / %x61-7A
-@@ -126,9 +128,11 @@
+@@ -139,9 +141,11 @@
  ; ASCII digit
  DIGIT = %x30-39  ; 0-9
  
@@ -37,7 +37,7 @@
  
  quoted-label = 1*(ALPHA / DIGIT / "-" / "/" / "_" / ":" / "." / "$")
  
-@@ -187,7 +191,9 @@
+@@ -200,7 +204,9 @@
      ; Printable characters except double quote and backslash
      / %x20-21
          ; %x22 = '"'
@@ -48,7 +48,7 @@
          ; %x5C = "\"
      / %x5D-10FFFF
  
-@@ -204,19 +210,14 @@
+@@ -217,19 +223,14 @@
  ;
  ; If you try to end the string literal with a single quote then you get "'''",
  ; which is interpreted as an escaped pair of single quotes
@@ -75,7 +75,7 @@
  
  text-literal = (double-quote-literal / single-quote-literal) whitespace
  
-@@ -237,81 +238,10 @@
+@@ -250,81 +251,10 @@
  missing-raw           = %x6d.69.73.73.69.6e.67
  Some-raw              = %x53.6f.6d.65
  constructors-raw      = %x63.6f.6e.73.74.72.75.63.74.6f.72.73
@@ -157,7 +157,7 @@
  
  ; Whitespaced rules for reserved words, to be used when matching expressions
  if           = if-raw           nonempty-whitespace
-@@ -370,13 +300,7 @@
+@@ -383,13 +313,7 @@
  
  natural-literal = natural-raw whitespace
  
@@ -172,7 +172,7 @@
  
  missing = missing-raw whitespace
  
-@@ -439,11 +363,12 @@
+@@ -461,11 +385,12 @@
  http-raw = scheme "://" authority directory file [ "?" query ] [ "#" fragment ]
  
  ; NOTE: Backtrack if parsing the optional user info prefix fails
@@ -189,7 +189,7 @@
  
  port = *DIGIT
  
-@@ -475,8 +400,6 @@
+@@ -497,8 +422,6 @@
            / "2" %x30-34 DIGIT  ; 200-249
            / "25" %x30-35       ; 250-255
  
@@ -198,7 +198,7 @@
  pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
  
  query = *( pchar / "/" / "?" )
-@@ -598,7 +521,8 @@
+@@ -620,7 +543,8 @@
  annotated-expression =
      ; "merge e1 e2 : t"
      ; "merge e1 e2"
@@ -208,7 +208,7 @@
  
      ; "[]  : List     t"
      ; "[]  : Optional t"
-@@ -607,35 +531,36 @@
+@@ -629,35 +553,34 @@
      ; NOTE: Backtrack if parsing this alternative fails since we can't tell
      ; from the opening bracket whether or not this will be an empty list or
      ; non-empty list
@@ -221,31 +221,30 @@
 -    / operator-expression (colon expression / "")
 -
 -empty-collection = close-bracket colon (List / Optional) import-expression
-+    ; whitespace chunk is not compliant with standard, but is needed to disambiguate from env: imports
-+    / operator-expression colon whitespace-chunk expression
- 
+-
 -non-empty-optional = expression close-bracket colon Optional import-expression
++    / operator-expression colon expression
 +    / operator-expression
  
  operator-expression = import-alt-expression
  
--import-alt-expression    = or-expression            *(import-alt            or-expression)
--or-expression            = plus-expression          *(or                    plus-expression         )
--plus-expression          = text-append-expression   *(plus whitespace-chunk text-append-expression  )
--text-append-expression   = list-append-expression   *(text-append           list-append-expression  )
--list-append-expression   = and-expression           *(list-append           and-expression          )
--and-expression           = combine-expression       *(and                   combine-expression      )
--combine-expression       = prefer-expression        *(combine               prefer-expression       )
--prefer-expression        = combine-types-expression *(prefer                combine-types-expression)
--combine-types-expression = times-expression         *(combine-types         times-expression        )
--times-expression         = equal-expression         *(times                 equal-expression        )
--equal-expression         = not-equal-expression     *(double-equal          not-equal-expression    )
--not-equal-expression     = application-expression   *(not-equal             application-expression  )
+-import-alt-expression    = or-expression            *(import-alt    or-expression)
+-or-expression            = plus-expression          *(or            plus-expression         )
+-plus-expression          = text-append-expression   *(plus          text-append-expression  )
+-text-append-expression   = list-append-expression   *(text-append   list-append-expression  )
+-list-append-expression   = and-expression           *(list-append   and-expression          )
+-and-expression           = combine-expression       *(and           combine-expression      )
+-combine-expression       = prefer-expression        *(combine       prefer-expression       )
+-prefer-expression        = combine-types-expression *(prefer        combine-types-expression)
+-combine-types-expression = times-expression         *(combine-types times-expression        )
+-times-expression         = equal-expression         *(times         equal-expression        )
+-equal-expression         = not-equal-expression     *(double-equal  not-equal-expression    )
+-not-equal-expression     = application-expression   *(not-equal     application-expression  )
 +import-alt-expression    = or-expression            / import-alt-expression import-alt or-expression
 +or-expression            = plus-expression          / or-expression or plus-expression
-+plus-expression          = text-append-expression   / plus-expression plus whitespace-chunk text-append-expression
++plus-expression          = text-append-expression   / plus-expression plus text-append-expression
 +text-append-expression   = list-append-expression   / text-append-expression text-append list-append-expression
-+list-append-expression   = and-expression           / list-append-expression list-append whitespace-chunk and-expression
++list-append-expression   = and-expression           / list-append-expression list-append and-expression
 +and-expression           = combine-expression       / and-expression and combine-expression
 +combine-expression       = prefer-expression        / combine-expression combine prefer-expression
 +prefer-expression        = combine-types-expression / prefer-expression prefer combine-types-expression
@@ -264,7 +263,7 @@
  
  import-expression = import / selector-expression
  
-@@ -647,7 +572,10 @@
+@@ -669,7 +592,10 @@
  ; can't tell from parsing just the period whether "foo." will become "foo.bar"
  ; (i.e. accessing field `bar` of the record `foo`) or `foo./bar` (i.e. applying
  ; the function `foo` to the relative path `./bar`)
@@ -276,7 +275,7 @@
  
  ; NOTE: Backtrack when parsing the first three alternatives (i.e. the numeric
  ; literals).  This is because they share leading characters in common
-@@ -687,48 +615,26 @@
+@@ -709,48 +635,26 @@
      ; "[1, 2, 3]"
      / non-empty-list-literal  ; `annotated-expression` handles empty lists
  
