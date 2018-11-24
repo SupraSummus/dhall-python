@@ -1,5 +1,5 @@
 from . import parser
-from .parser import parse
+from .parser import parse, SyntaxError
 
 
-__all__ = ('parse', 'parser')
+__all__ = ('parse', 'parser', 'SyntaxError')

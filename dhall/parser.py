@@ -270,12 +270,20 @@ with timeit('making parser'):
     )
 
 
-parse = parser.parse
+class SyntaxError(Exception):
+    pass
+
+
+def parse(string):
+    try:
+        trees = parser.parse(string)
+    except parglare.ParseError as e:
+        raise SyntaxError(e)
+    # GLR parser can return multiple trees when there is ambiguity
+    assert len(trees) == 1, "Ambiguity detected - got {} parses".format(len(trees))
+    return trees[0]
 
 
 def load(filename):
     with open(filename, 'rt') as f:
-        trees = parse(f.read())
-    # GLR parser can return multiple trees when there is ambiguity
-    assert len(trees) == 1, "Ambiguity detected - got {} parses".format(len(trees))
-    return trees[0]
+        return parse(f.read())

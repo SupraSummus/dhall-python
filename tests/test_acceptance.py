@@ -9,6 +9,16 @@ def get_tests(dir_path):
     for root, dirs, files in os.walk(dir_path):
         for f in files:
             name, ext = os.path.splitext(f)
+            assert name not in tests
+            tests[name] = os.path.join(root, f)
+    return tests
+
+
+def get_test_sets(dir_path):
+    tests = {}
+    for root, dirs, files in os.walk(dir_path):
+        for f in files:
+            name, ext = os.path.splitext(f)
             if ext == '.dhall':
                 test_group = tests.setdefault(name[:-1], {})
                 assert name[-1] not in test_group
@@ -17,7 +27,7 @@ def get_tests(dir_path):
 
 
 class ParserSuccessTestCase(TestCase):
-    tests = get_tests('./dhall-lang/tests/parser/success/')
+    tests = get_test_sets('./dhall-lang/tests/parser/success/')
 
     @parameterized.expand(sorted(tests.items()))
     def test(self, _name, paths):
@@ -27,8 +37,17 @@ class ParserSuccessTestCase(TestCase):
         dhall.parser.load(paths['A'])
 
 
+class ParserFailureTestCase(TestCase):
+    tests = get_tests('./dhall-lang/tests/parser/failure/')
+
+    @parameterized.expand(sorted(tests.items()))
+    def test(self, _name, path):
+        with self.assertRaises(dhall.SyntaxError):
+            dhall.parser.load(path)
+
+
 class TypecheckSuccessSimpleTestCase(TestCase):
-    tests = get_tests('./dhall-lang/tests/typecheck/success/simple/')
+    tests = get_test_sets('./dhall-lang/tests/typecheck/success/simple/')
     # select tests - we dont have full typechecker yet
     tests = {
         '0': tests['0'],
