@@ -30,3 +30,9 @@ class ShadowDict(Generic[KT, VT]):
 
     def age(self, name: KT, scope: int = 0) -> int:
         return self.generation - self.entries.get(name, pvector())[-scope - 1][1]
+
+    def __str__(self):
+        return str({
+            n: tuple(vv[0] for vv in v)
+            for n, v in self.entries.items()
+        })

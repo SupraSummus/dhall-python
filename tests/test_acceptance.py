@@ -24,6 +24,8 @@ class TypecheckSuccessSimpleTestCase(TestCase):
         '1': tests['1'],
         'alternativesAreTypes': tests['alternativesAreTypes'],
         'anonymousFunctionsInTypes': tests['anonymousFunctionsInTypes'],
+        'fieldsAreTypes': tests['fieldsAreTypes'],
+        'kindParameter': tests['kindParameter'],
     }
 
     @parameterized.expand(sorted(tests.items()))
