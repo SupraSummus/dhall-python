@@ -13,27 +13,30 @@ Pure python implementation of [dhall](https://github.com/dhall-lang/dhall-lang) 
     flake8  # to lint the code
     make abnf_patch  # to make changes to dhall.abnf persistent
 
-Details:
- * parsing is done using [parglare](https://github.com/igordejanovic/parglare) GLR parser library
- * acceptance tests comes from dhall-lang repository
+Status
+------
 
-abnf2bnf.py
------------
+ * [x] parsing
 
-The scripts converts ABNF sugar into plain BNF-like format serialized in JSON. As an only argument it takes name of start symbol.
+   All tests from acceptance test suite pass, except AST is not checked against CBOR.
+ 
+ * [ ] typechecking / evaluating / normalizing
 
-    cat dhall.abnf | python abnf2bnf.py complete-expression > dhall.bnf.json
+   Some tests from acceptance test suite pass, but typechecking infrastructure needs to be havily reworked.
 
-bnf2parglare.py
-----------------
+ * [ ] import resolution
+ * [ ] loading from / dumping to binary
+ * [ ] (pretty)printing expressions
+ 
+   There is some code responsible for printing for type errors explanation, but it's incomplete and does not properly support precedence.
 
-This script will convert BNF grammar description into [parglare](https://github.com/igordejanovic/parglare) description.
+Details
+-------
 
-    cat dhall.bnf.json | python bnf2parglare.py > dhall.parglare.json
+Parsing is done using [parglare](https://github.com/igordejanovic/parglare) GLR parser library. `grammar.abnf` from dhall-lang repository is first patched, then converted into GLR parser tables. Take a look at [`setup.py`](setup.py), how it's done.
 
-dhall
------
+Acceptance tests comes from dhall-lang repository. They are then triggered during unit testing using awesome [parametrized package](https://github.com/wolever/parameterized). Take a look at [`tests/test_acceptance.py`](tests/test_acceptance.py).
 
-Dhall parser - work in progress
+To check what dhall-python is capable of parsing call something like
 
-    cat dhall-haskell/tests/parser/annotations.dhall | python dhall.py
+    cat dhall-haskell/tests/parser/annotations.dhall | dhall-python-parse
