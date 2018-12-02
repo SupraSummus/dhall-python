@@ -8,9 +8,10 @@ matrix:
       sudo: true
 
 install:
-  - pip install flake8 coverage codecov
+  - pip install flake8 mypy coverage codecov
 script:
   - python setup.py build
   - flake8
+  - mypy -p dhall.ast
   - coverage run --source=dhall/ --omit=dhall/_grammar.py setup.py test
   - codecov

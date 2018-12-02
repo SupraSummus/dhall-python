@@ -4,3 +4,4 @@ dhall/_grammar.py
 .eggs/
 build/
 dhall_python.egg-info/
+.mypy_cache/

@@ -1,4 +1,5 @@
 import re
+from typing import TYPE_CHECKING, Dict, Any
 
 import parglare
 
@@ -8,7 +9,10 @@ from .parglare_adapter import to_parglare_grammar
 
 
 with timeit('importing grammar'):
-    from ._grammar import grammar
+    if TYPE_CHECKING:
+        grammar : (Dict[str, [[str]]], Dict[str, Any], str, str, Any)
+    else:
+        from ._grammar import grammar
     productions, terminals, original_start_symbol, start_symbol, parse_table = grammar
 
 
