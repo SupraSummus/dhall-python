@@ -49,7 +49,7 @@ class ParserFailureTestCase(TestCase):
 class TypecheckSuccessSimpleTestCase(TestCase):
     tests = get_test_sets('./dhall-lang/tests/typecheck/success/simple/')
     # select tests - we dont have full typechecker yet
-    tests = {
+    selected_tests = {
         '0': tests['0'],
         '1': tests['1'],
         'alternativesAreTypes': tests['alternativesAreTypes'],
