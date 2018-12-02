@@ -16,6 +16,7 @@ class ShadowDict(Generic[KT, VT]):
     generation: int = 0
 
     def shadow(self, entries: Dict[KT, VT]) -> 'ShadowDict[KT, VT]':
+        # TODO improve complexity, as it's now O(#variables) - too bad
         new_generation = self.generation + 1
         new_entries = {n: vs for n, vs in self.entries.items()}
         for n, v in entries.items():
@@ -31,8 +32,20 @@ class ShadowDict(Generic[KT, VT]):
     def age(self, name: KT, scope: int = 0) -> int:
         return self.generation - self.entries.get(name, pvector())[-scope - 1][1]
 
+    def map(self, f):
+        return ShadowDict(
+            {
+                k: pvector([(f(v), g) for v, g in vs])
+                for k, vs in self.entries.items()
+            },
+            self.generation,
+        )
+
+    def pretty_string(self, f):
+        return '\n'.join([
+            '{}: {}'.format(k, tuple(f(v[0]) for v in vs))
+            for k, vs in self.entries.items()
+        ])
+
     def __str__(self):
-        return str({
-            n: tuple(vv[0] for vv in v)
-            for n, v in self.entries.items()
-        })
+        return self.pretty_string(str)
