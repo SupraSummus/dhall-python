@@ -18,11 +18,11 @@ class FunctionTypesTestCase(TestCase):
             ),
         )
         typ = ast.ForAll(
-            'ignored',
+            '_',
             ast.TypeBuiltin(),
-            ast.ListBuiltin().type(),
+            ast.ListBuiltin().type()[0],
         )
         self.assertEqual(
-            expression.type(),
+            expression.normalized_type(),
             typ,
         )

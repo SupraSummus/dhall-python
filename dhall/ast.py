@@ -1,4 +1,5 @@
 from typing import Any, Optional
+import dataclasses
 from dataclasses import dataclass
 
 from .data_structures import ShadowDict
@@ -73,14 +74,14 @@ class Expression:
         return self._normalized(ctx)
 
     def _normalized(self, ctx):
-        raise NotImplementedError('{}._normalized() is not implemented yet'.format(self.__class__))
+        return self.map(lambda expr: expr.normalized(ctx))
 
     def evaluated(self, ctx=CTX_EMPTY):
         """Perform beta-normalization. ctx contains variable values."""
         return self._evaluated(ctx)
 
     def _evaluated(self, ctx):
-        raise NotImplementedError('{}._evaluated() is not implemented yet'.format(self.__class__))
+        return self.map(lambda expr: expr.evaluated(ctx))
 
     def type(self, type_ctx=CTX_EMPTY):
         """Type of this expression.
@@ -90,14 +91,19 @@ class Expression:
         try:
             return self._type(type_ctx)
         except TypeError:
-            raise TypeError("when type-infering\n"
-                            "\t`{}`\n{}".format(
-                self.to_dhall(),
-                ctx2str(type_ctx),
-            ))
+            raise TypeError(
+                (
+                    "when type-infering\n"
+                    "\t`{}`\n"
+                    "{}"
+                ).format(
+                    self.to_dhall(),
+                    ctx2str(type_ctx),
+                ),
+            )
 
     def _type(self, type_ctx):
-        raise NotImplementedError('{}._type() is not implemented yet'.format(self.__class__))
+        raise NotImplementedError('{}._type() is not implemented'.format(self.__class__))
 
     def normalized_type(self, type_ctx=CTX_EMPTY):
         """self :⇥ return"""
@@ -108,12 +114,32 @@ class Expression:
         """self ≡ other"""
         return exact(self, other, ctx)
 
+    def can_apply_to(self, value):
+        return False
+
+    def apply(self, value, ctx):
+        raise NotImplementedError('{}.apply() is not implemented'.format(self.__class__))
+
+    def map(self, f):
+        current_expression = self
+        return dataclasses.replace(current_expression, **{
+            k: f(v)
+            for k, v in dataclasses.asdict(current_expression).items()
+            if isinstance(v, Expression)
+        })
+
     def to_dhall(self):
         return str(self)  # TODO change to not implemented someday
 
     def to_python(self):
         """Representation in python's native data types."""
         raise NotImplementedError('{}.to_python() is not implemented yet'.format(self.__class__))
+
+
+@dataclass(frozen=True)
+class Closure(Expression):
+    expression: Expression
+    context: ShadowDict[str, Expression] = CTX_EMPTY
 
 
 @dataclass
@@ -141,7 +167,7 @@ class Lambda(Expression):
         )
 
     def _type(self, type_ctx):
-        expression_type = self.expression.type(type_ctx.shadow({
+        expression_type, expression_type_ctx = self.expression.type(type_ctx.shadow({
             self.parameter_name: (self.parameter_type, None, type_ctx),
         }))
         lambda_type = ForAll(
@@ -151,6 +177,14 @@ class Lambda(Expression):
         )
         lambda_type.type(type_ctx)  # lambda type must typecheck
         return lambda_type, type_ctx
+
+    def can_apply_to(self, value):
+        return True
+
+    def apply(self, value, ctx):
+        return self.expression.evaluated(ctx.shadow({
+            self.parameter_name: (None, value, ctx),
+        }))
 
     def to_dhall(self):
         return 'λ({} : {}) → {}'.format(
@@ -302,7 +336,7 @@ class Variable(Expression):
         if type_ctx.has(self.name, self.scope):
             typ, value, covered_ctx = type_ctx.get(self.name, self.scope)
             if value is not None:
-                return value.type(covered_ctx), covered_ctx
+                return value.type(covered_ctx)
             if typ is not None:
                 return typ, covered_ctx
 
@@ -350,10 +384,8 @@ class ApplicationExpression(BinaryOperatorExpression):
     def _evaluated(self, ctx):
         f = self.arg1.evaluated(ctx)
         arg = self.arg2.evaluated(ctx)
-        if isinstance(f, Lambda):
-            return f.expression.evaluated(ctx.shadow({
-                f.parameter_name: (None, arg, ctx),
-            }))
+        if f.can_apply_to(arg):
+            return f.apply(arg, ctx)
         else:
             return ApplicationExpression(f, arg)
 
@@ -460,13 +492,13 @@ class SelectExpression(Expression):
                 self.expression.alternatives_dict[self.label],
                 self.expression,
             ), type_ctx.shadow({
-                DEFAULT_VARIABLE_NAME, (None, None, None),
+                DEFAULT_VARIABLE_NAME: (None, None, None),
             })
 
         if isinstance(self.expression, RecordLiteral):
             # select from a record yields record field value
             self.expression.type(type_ctx)
-            return self.expression.fields_dict[self.label].type(type_ctx), type_ctx
+            return self.expression.fields_dict[self.label].type(type_ctx)
 
         raise TypeError('Can\'t select from {}'.format(self.expression))
 
@@ -499,9 +531,15 @@ class ListLiteral(Expression):
 class RecordLiteral(Expression):
     fields: [(str, Expression)]
 
+    def map(self, f):
+        return RecordLiteral([
+            (k, f(v))
+            for k, v in self.fields
+        ])
+
     def _type(self, type_ctx):
         return RecordType([
-            (l, val.type(type_ctx))
+            (l, val.type(type_ctx)[0])
             for l, val in self.fields
         ]), type_ctx
 
@@ -520,12 +558,28 @@ class Union(Expression):
         if not unique([self.label] + [a[0] for a in self.alternatives]):
             raise TypeError('nonunique union labels')
         # TODO verify that all expressions are types
-        return UnionType([(self.label, self.value.type(type_ctx))] + self.alternatives), type_ctx
+        return UnionType([(self.label, self.value.type(type_ctx)[0])] + self.alternatives), type_ctx
 
 
 @dataclass
 class OptionalLiteral(Expression):
     wrapped: Optional[Expression] = None
+
+
+@dataclass(frozen=True)
+class DoubleLiteral(Expression):
+    value: float
+
+
+@dataclass(frozen=True)
+class NaturalLiteral(Expression):
+    value: int
+
+
+@dataclass(frozen=True)
+class TextLiteral(Expression):
+    chunks: [str]
+
 
 # ### builtins ###
 
@@ -578,6 +632,12 @@ class NaturalBuiltin(BuiltinExpression):
 
 
 @dataclass(frozen=True)
+class DoubleBuiltin(BuiltinExpression):
+    builtin_type = TypeBuiltin()
+    dhall_string = 'Double'
+
+
+@dataclass(frozen=True)
 class TextBuiltin(BuiltinExpression):
     builtin_type = TypeBuiltin()
     dhall_string = 'Text'
@@ -589,6 +649,18 @@ class ListBuiltin(BuiltinExpression):
     dhall_string = 'List'
 
 
+@dataclass(frozen=True)
+class DoubleShowBuiltin(BuiltinExpression):
+    builtin_type = ForAll(DEFAULT_VARIABLE_NAME, DoubleBuiltin(), TextBuiltin())
+    dhall_string = 'Double/show'
+
+    def can_apply_to(self, value):
+        return isinstance(value, DoubleLiteral)
+
+    def apply(self, value, ctx):
+        return TextLiteral([c for c in str(value.value)])
+
+
 _builtins = {
     builtin.dhall_string: builtin
     for builtin in [
@@ -597,7 +669,7 @@ _builtins = {
         # 'None': BuiltinNotImplemented,
         NaturalBuiltin,
         # 'Integer': BuiltinNotImplemented,
-        # 'Double': BuiltinNotImplemented,
+        DoubleBuiltin,
         TextBuiltin,
         ListBuiltin,
         # 'True': BuiltinNotImplemented,
@@ -607,6 +679,7 @@ _builtins = {
         TypeBuiltin,
         KindBuiltin,
         SortBuiltin,
+        DoubleShowBuiltin,
     ]
 }
 
@@ -639,15 +712,15 @@ class RecordType(Expression):
             for name, expression in self.fields
         ])
 
-    def _evaluated(self, ctx):
+    def map(self, f):
         return RecordType([
-            (name, expression.evaluated(ctx))
+            (name, f(expression))
             for name, expression in self.fields
         ])
 
     def _type(self, type_ctx):
         if not self.fields:
-            return TypeBuiltin()
+            return TypeBuiltin(), CTX_EMPTY
         field_types = []
         for name, expression in self.fields:
             typ = expression.normalized_type(type_ctx)

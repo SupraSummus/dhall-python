@@ -46,6 +46,24 @@ class ParserFailureTestCase(TestCase):
             dhall.parser.load(path)
 
 
+class NormalizationSuccessSimpleTestCase(TestCase):
+    tests = get_test_sets('./dhall-lang/tests/normalization/success/simple/')
+    # select tests - we dont have full normalization implemented yet
+    selected_tests = {
+        'doubleShow': tests['doubleShow'],
+    }
+
+    @parameterized.expand(sorted(selected_tests.items()))
+    def test(self, _name, paths):
+        assert len(paths) == 2  # sanity check
+        val_a = dhall.parser.load(paths['A'])
+        val_b = dhall.parser.load(paths['B'])
+        self.assertEqual(
+            val_a.evaluated().normalized(),
+            val_b.evaluated().normalized(),
+        )
+
+
 class TypecheckSuccessSimpleTestCase(TestCase):
     tests = get_test_sets('./dhall-lang/tests/typecheck/success/simple/')
     # select tests - we dont have full typechecker yet
@@ -58,7 +76,7 @@ class TypecheckSuccessSimpleTestCase(TestCase):
         'kindParameter': tests['kindParameter'],
     }
 
-    @parameterized.expand(sorted(tests.items()))
+    @parameterized.expand(sorted(selected_tests.items()))
     def test(self, _name, paths):
         assert len(paths) == 2  # sanity check
         val = dhall.parser.load(paths['A'])

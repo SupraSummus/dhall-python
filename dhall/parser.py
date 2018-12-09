@@ -58,7 +58,19 @@ actions['quoted-label'] = [concat_all]
 actions['label'] = [lambda c, _ws: c if isinstance(c, str) else c[1]]
 
 actions['natural-raw'] = [lambda f, c: int(f + ''.join(collect(c, 0)))]
-actions['natural-literal'] = [lambda a, _: a]
+actions['natural-literal'] = [lambda a, _: ast.NaturalLiteral(a)]
+actions['double-literal'] = [lambda *a: ast.DoubleLiteral(float(concat_all(*a)))]
+
+actions['double-quote-chunk'] = [
+    lambda _1, expr, _2: expr,
+    concat_all,
+    identity,
+    identity,
+    identity,
+    identity,
+]
+actions['double-quote-literal'] = [lambda _1, a, _2: ast.TextLiteral(collect(a, 0))]
+actions['text-literal'] = [lambda a, _: a]
 
 actions['path-component'] = [concat_all]
 actions['query'] = [concat_all]
@@ -143,14 +155,16 @@ actions['selector-expression'] = [
 ]
 
 actions['primitive-expression'] = [
-    identity_list,
-    identity_list,
-    identity_list,
+    # number literals
+    identity,
+    identity,
+    identity,
 
     # -infinity
     lambda _1, _2: float('-inf'),
 
-    identity_list,
+    # text literal
+    identity,
 
     lambda _1, a, _2: a,  # record type or literal
     lambda _1, a, _2: a,  # union type or literal
