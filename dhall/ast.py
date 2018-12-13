@@ -368,12 +368,6 @@ class BinaryOperatorExpression(Expression):
     arg1: Expression
     arg2: Expression
 
-    def _normalized(self, ctx):
-        return self.__class__(
-            self.arg1.normalized(ctx),
-            self.arg2.normalized(ctx),
-        )
-
 
 class ListAppendExpression(BinaryOperatorExpression):
     pass
@@ -468,8 +462,24 @@ class MergeExpression(Expression):
             return output_type, output_type_ctx
 
 
-class Plus(BinaryOperatorExpression):
-    pass
+class NaturalMathExpression(BinaryOperatorExpression):
+    def _evaluated(self, ctx):
+        a = self.arg1.evaluated(ctx)
+        b = self.arg2.evaluated(ctx)
+        if isinstance(a, NaturalLiteral) and isinstance(b, NaturalLiteral):
+            return NaturalLiteral(self._value(a.value, b.value))
+        else:
+            return self.__class__(a, b)
+
+
+class Plus(NaturalMathExpression):
+    def _value(self, a, b):
+        return a + b
+
+
+class Times(NaturalMathExpression):
+    def _value(self, a, b):
+        return a * b
 
 
 @dataclass

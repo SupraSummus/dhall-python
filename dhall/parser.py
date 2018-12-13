@@ -124,7 +124,7 @@ for name, wrapper in {
     # 'combine-expression': None,
     # 'prefer-expression': None,
     # 'combine-types-expression': None,
-    # 'times-expression': None,
+    'times-expression': ast.Times,
     # 'equal-expression': None,
     # 'not-equal-expression': None,
     'application-expression': ast.ApplicationExpression,

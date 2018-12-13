@@ -51,6 +51,7 @@ class NormalizationSuccessSimpleTestCase(TestCase):
     # select tests - we dont have full normalization implemented yet
     selected_tests = {
         'doubleShow': tests['doubleShow'],
+        'letlet': tests['letlet'],
     }
 
     @parameterized.expand(sorted(selected_tests.items()))

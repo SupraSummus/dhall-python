@@ -42,10 +42,13 @@ class ShadowDict(Generic[KT, VT]):
         )
 
     def pretty_string(self, f):
-        return '\n'.join([
-            '{}: {}'.format(k, tuple(f(v[0]) for v in vs))
-            for k, vs in self.entries.items()
-        ])
+        if self.entries:
+            return '\n'.join([
+                '{}: {}'.format(k, tuple(f(v[0]) for v in vs))
+                for k, vs in self.entries.items()
+            ])
+        else:
+            return '<empty>'
 
     def __str__(self):
         return self.pretty_string(str)
