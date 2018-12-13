@@ -116,11 +116,11 @@ actions['oprator-expression'] = [identity]
 # operators
 for name, wrapper in {
     # 'import-alt-expression': None,
-    # 'or-expression': None,
+    'or-expression': ast.Or,
     'plus-expression': ast.Plus,
     # 'text-append-expression': None,
     'list-append-expression': ast.ListAppendExpression,
-    # 'and-expression': None,
+    'and-expression': ast.And,
     # 'combine-expression': None,
     # 'prefer-expression': None,
     # 'combine-types-expression': None,

@@ -20,7 +20,11 @@ def get_test_sets(dir_path):
         for f in files:
             name, ext = os.path.splitext(f)
             if ext == '.dhall':
-                test_group = tests.setdefault(name[:-1], {})
+                test_group_name = os.path.relpath(
+                    os.path.join(root, name[:-1]),
+                    dir_path,
+                )
+                test_group = tests.setdefault(test_group_name, {})
                 assert name[-1] not in test_group
                 test_group[name[-1]] = os.path.join(root, f)
     return tests
@@ -46,12 +50,14 @@ class ParserFailureTestCase(TestCase):
             dhall.parser.load(path)
 
 
-class NormalizationSuccessSimpleTestCase(TestCase):
-    tests = get_test_sets('./dhall-lang/tests/normalization/success/simple/')
+class NormalizationSuccessNoImportTestCase(TestCase):
+    tests = get_test_sets('./dhall-lang/tests/normalization/success/')
     # select tests - we dont have full normalization implemented yet
     selected_tests = {
-        'doubleShow': tests['doubleShow'],
-        'letlet': tests['letlet'],
+        'simple/doubleShow': tests['simple/doubleShow'],
+        'simple/letlet': tests['simple/letlet'],
+        'simplifications/and': tests['simplifications/and'],
+        'simplifications/or': tests['simplifications/or'],
     }
 
     @parameterized.expand(sorted(selected_tests.items()))
@@ -69,8 +75,8 @@ class TypecheckSuccessSimpleTestCase(TestCase):
     tests = get_test_sets('./dhall-lang/tests/typecheck/success/simple/')
     # select tests - we dont have full typechecker yet
     selected_tests = {
-        '0': tests['0'],
-        '1': tests['1'],
+        'access/0': tests['access/0'],
+        'access/1': tests['access/1'],
         'alternativesAreTypes': tests['alternativesAreTypes'],
         'anonymousFunctionsInTypes': tests['anonymousFunctionsInTypes'],
         'fieldsAreTypes': tests['fieldsAreTypes'],

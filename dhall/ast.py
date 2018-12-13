@@ -482,6 +482,46 @@ class Times(NaturalMathExpression):
         return a * b
 
 
+class Or(BinaryOperatorExpression):
+    def _evaluated(self, ctx):
+        a = self.arg1.evaluated(ctx)
+        b = self.arg2.evaluated(ctx)
+        if isinstance(a, BooleanLiteral):
+            if a.value:
+                return BooleanLiteral(True)
+            else:
+                return b
+        elif isinstance(b, BooleanLiteral):
+            if b.value:
+                return BooleanLiteral(True)
+            else:
+                return a
+        elif a.normalized() == b.normalized():
+            return a
+        else:
+            return self.__class__(a, b)
+
+
+class And(BinaryOperatorExpression):
+    def _evaluated(self, ctx):
+        a = self.arg1.evaluated(ctx)
+        b = self.arg2.evaluated(ctx)
+        if isinstance(a, BooleanLiteral):
+            if not a.value:
+                return BooleanLiteral(False)
+            else:
+                return b
+        elif isinstance(b, BooleanLiteral):
+            if not b.value:
+                return BooleanLiteral(False)
+            else:
+                return a
+        elif a.normalized() == b.normalized():
+            return a
+        else:
+            return self.__class__(a, b)
+
+
 @dataclass
 class ImportExpression(Expression):
     source: Any
@@ -591,6 +631,11 @@ class TextLiteral(Expression):
     chunks: [str]
 
 
+@dataclass(frozen=True)
+class BooleanLiteral(Expression):
+    value: bool
+
+
 # ### builtins ###
 
 
@@ -672,7 +717,7 @@ class DoubleShowBuiltin(BuiltinExpression):
 
 
 _builtins = {
-    builtin.dhall_string: builtin
+    builtin.dhall_string: builtin()
     for builtin in [
         BoolBuiltin,
         # 'Optional': BuiltinNotImplemented,
@@ -692,11 +737,13 @@ _builtins = {
         DoubleShowBuiltin,
     ]
 }
+_builtins['False'] = BooleanLiteral(False)
+_builtins['True'] = BooleanLiteral(True)
 
 
 def make_builtin_or_variable(name):
     if name in _builtins:
-        return _builtins[name]()
+        return _builtins[name]
     return Variable(name)
 
 
