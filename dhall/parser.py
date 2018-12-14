@@ -168,7 +168,7 @@ actions['primitive-expression'] = [
 
     lambda _1, a, _2: a,  # record type or literal
     lambda _1, a, _2: a,  # union type or literal
-    identity_list,
+    identity,  # nonempty list literal
     identity,  # identifier or builtin
 
     # ordinary parentesis
