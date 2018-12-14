@@ -141,6 +141,9 @@ class Closure(Expression):
     expression: Expression
     context: ShadowDict[str, Expression] = CTX_EMPTY
 
+    def _evaluated(self, ctx):
+        return self.expression.evaluated(self.context)
+
 
 @dataclass
 class Lambda(Expression):
@@ -351,6 +354,9 @@ class TypeAnnotation(Expression):
     expression: Expression
     expression_type: Expression
 
+    def _evaluated(self, ctx):
+        return self.expression.evaluated(ctx)
+
     def _type(self, type_ctx):
         self.expression_type.type(type_ctx)  # the type itself typechecks
         typ, typ_ctx = self.expression.type(type_ctx)
@@ -370,7 +376,13 @@ class BinaryOperatorExpression(Expression):
 
 
 class ListAppendExpression(BinaryOperatorExpression):
-    pass
+    def _evaluated(self, ctx):
+        a = self.arg1.evaluated(ctx)
+        b = self.arg1.evaluated(ctx)
+        if isinstance(a, ListLiteral) and isinstance(b, ListLiteral):
+            return ListLiteral(a.items + b.items)
+        else:
+            return self.__class__(a, b)
 
 
 @dataclass(frozen=True)
@@ -575,6 +587,7 @@ class ProjectionExpression(Expression):
 @dataclass
 class ListLiteral(Expression):
     items: [Expression]
+    element_type: Optional[Expression] = None  # needed for empty lists
 
 
 @dataclass
@@ -705,6 +718,69 @@ class ListBuiltin(BuiltinExpression):
 
 
 @dataclass(frozen=True)
+class ListBuild(BuiltinExpression):
+    dhall_string = 'List/build'
+
+    def can_apply_to(self, value):
+        return True
+
+    def apply(self, value, ctx):
+        return ListBuildTyped(Closure(value, ctx))
+
+
+@dataclass(frozen=True)
+class ListBuildTyped(Expression):
+    element_type: Expression
+
+    @property
+    def list_type_expression(self):
+        return ListType(self.element_type)
+
+    @property
+    def cons_expression(self):
+        return Lambda(
+            'a', self.element_type,
+            Lambda(
+                'as', self.list_type_expression,
+                ListAppendExpression(
+                    ListLiteral([Variable('a')]),
+                    Variable('as'),
+                ),
+            ),
+        )
+
+    @property
+    def nil_expression(self):
+        return ListLiteral([], self.element_type)
+
+    def can_apply_to(self, value):
+        return True
+
+    def apply(self, value, ctx):
+        if (
+            isinstance(value, ApplicationExpression) and
+            isinstance(value.arg1, ListFoldTyped)
+        ):
+            return value.arg2
+
+        return ApplicationExpression(
+            ApplicationExpression(
+                ApplicationExpression(
+                    value,
+                    self.list_type_expression,
+                ),
+                self.cons_expression,
+            ),
+            self.nil_expression,
+        ).evaluated(ctx)
+
+
+@dataclass(frozen=True)
+class ListFold(BuiltinExpression):
+    dhall_string = 'List/fold'
+
+
+@dataclass(frozen=True)
 class DoubleShowBuiltin(BuiltinExpression):
     builtin_type = ForAll(DEFAULT_VARIABLE_NAME, DoubleBuiltin(), TextBuiltin())
     dhall_string = 'Double/show'
@@ -725,16 +801,16 @@ _builtins = {
         NaturalBuiltin,
         # 'Integer': BuiltinNotImplemented,
         DoubleBuiltin,
+        DoubleShowBuiltin,
         TextBuiltin,
         ListBuiltin,
-        # 'True': BuiltinNotImplemented,
-        # 'False': BuiltinNotImplemented,
+        ListBuild,
+        ListFold,
         # 'NaN': BuiltinNotImplemented,
         # 'Infinity': BuiltinNotImplemented,
         TypeBuiltin,
         KindBuiltin,
         SortBuiltin,
-        DoubleShowBuiltin,
     ]
 }
 _builtins['False'] = BooleanLiteral(False)

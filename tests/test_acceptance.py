@@ -56,6 +56,7 @@ class NormalizationSuccessNoImportTestCase(TestCase):
     selected_tests = {
         'simple/doubleShow': tests['simple/doubleShow'],
         'simple/letlet': tests['simple/letlet'],
+        'simple/listBuild': tests['simple/listBuild'],
         'simplifications/and': tests['simplifications/and'],
         'simplifications/or': tests['simplifications/or'],
     }
