@@ -43,9 +43,8 @@ class custom_build(build):
 requirements = [
     'parglare',
     'pyrsistent==0.14.*',
+    'attrs',
 ]
-if sys.version < '3.7':
-    requirements.append('dataclasses')
 
 setup(
     name='dhall-python',
