@@ -12,9 +12,9 @@ def unique(elements):
     return len(elements) == len(set(elements))
 
 
-def exact(a, b, ctx=CTX_EMPTY):
+def exact(a, b):
     """a ≡ b"""
-    return a.evaluated(ctx).normalized() == b.evaluated(ctx).normalized()
+    return a.evaluated().normalized() == b.evaluated().normalized()
 
 
 def function_check(arg, result):
@@ -113,11 +113,11 @@ class Expression:
     def normalized_type(self, type_ctx=CTX_EMPTY):
         """self :⇥ return"""
         typ, typ_ctx = self.type(type_ctx)
-        return typ.evaluated(typ_ctx).normalized()
+        return typ.evaluated().normalized()
 
-    def exact(self, other, ctx=CTX_EMPTY):
+    def exact(self, other):
         """self ≡ other"""
-        return exact(self, other, ctx)
+        return exact(self, other)
 
     def can_apply_to(self, value):
         return False
@@ -181,12 +181,13 @@ class Lambda(Expression):
         )
 
     def _type(self, type_ctx):
-        expression_type, expression_type_ctx = self.expression.type(type_ctx.shadow({
-            self.parameter_name: (self.parameter_type, None, type_ctx),
+        parameter_type = self.parameter_type.substitute_many(self.context)
+        expression_type, expression_type_ctx = self.expression.substitute_many(self.context).type(type_ctx.shadow({
+            self.parameter_name: (parameter_type, None, type_ctx),
         }))
         lambda_type = ForAll(
             self.parameter_name,
-            self.parameter_type,
+            parameter_type,
             expression_type,
         )
         lambda_type.type(type_ctx)  # lambda type must typecheck
@@ -257,11 +258,14 @@ class LetIn(Expression):
         return self.expression.substitute_many(context).evaluated()
 
     def _type(self, type_ctx):
+        context = self.context
         for name, value, typ in self.parameters:
+            value = value.substitute_many(context)
             value_type, value_type_ctx = value.type(type_ctx)
 
             # verify against annotation
             if typ is not None:
+                typ = typ.substitute_many(context)
                 typ.type(type_ctx)  # type annotation typechecks itself
                 if not exact(typ, value_type):
                     raise TypeError('annotation\n\t{} doesn\'t match expression type\n\t{}'.format(
@@ -269,11 +273,9 @@ class LetIn(Expression):
                         value_type.to_dhall(),
                     ))
 
-            type_ctx = type_ctx.shadow({
-                name: (None, value, type_ctx),
-            })
+            context = context.shadow_single(name, value)
 
-        return self.expression.type(type_ctx)
+        return self.expression.substitute_many(context).type(type_ctx)
 
     def to_dhall(self):
         lets = []
@@ -313,9 +315,10 @@ class ForAll(Expression):
         )
 
     def _type(self, type_ctx):
-        parameter_type_type = self.parameter_type.normalized_type(type_ctx)
-        expression_type = self.expression.normalized_type(type_ctx.shadow({
-            self.parameter_name: (self.parameter_type, None, type_ctx),
+        parameter_type = self.parameter_type.substitute_many(self.context)
+        parameter_type_type = parameter_type.normalized_type(type_ctx)
+        expression_type = self.expression.substitute_many(self.context).normalized_type(type_ctx.shadow({
+            self.parameter_name: (parameter_type, None, type_ctx),
         }))
         return function_check(parameter_type_type, expression_type), CTX_EMPTY
 
@@ -352,6 +355,11 @@ class Variable(Expression):
         return self
 
     def _type(self, type_ctx):
+        if self.context.has(self.name, self.scope):
+            value = self.context.get(self.name, self.scope)
+            if value is not None:
+                return value.type(type_ctx)
+
         if type_ctx.has(self.name, self.scope):
             typ, value, covered_ctx = type_ctx.get(self.name, self.scope)
             if value is not None:
@@ -378,10 +386,10 @@ class TypeAnnotation(Expression):
         return self.expression.substitute_many(self.context).evaluated()
 
     def _type(self, type_ctx):
-        self.expression_type.type(type_ctx)  # the type itself typechecks
-        typ, typ_ctx = self.expression.type(type_ctx)
-        annotated_type = self.expression_type
-        if typ.evaluated(typ_ctx).normalized() != annotated_type.evaluated(type_ctx).normalized():
+        annotated_type = self.expression_type.substitute_many(self.context)
+        annotated_type.type(type_ctx)  # the type itself typechecks
+        typ, typ_ctx = self.expression.substitute_many(self.context).type(type_ctx)
+        if not exact(typ, annotated_type):
             raise TypeError('annotation\n\t`{}` doesn\'t match expression type\n\t`{}`'.format(
                 self.expression_type.to_dhall(),
                 typ.to_dhall(),
@@ -426,10 +434,12 @@ class ApplicationExpression(BinaryOperatorExpression):
             return new
 
     def _type(self, type_ctx):
-        function_type = self.arg1.normalized_type(type_ctx)
+        f = self.arg1.substitute_many(self.context)
+        arg = self.arg2.substitute_many(self.context)
+        function_type = f.normalized_type(type_ctx)
         if not isinstance(function_type, ForAll):
-            raise TypeError('couldnt apply non-function `{}`'.format(self.arg1.to_dhall()))
-        parameter_type, parameter_type_ctx = self.arg2.type(type_ctx)
+            raise TypeError('couldnt apply non-function `{}`'.format(arg.to_dhall()))
+        parameter_type, parameter_type_ctx = arg.type(type_ctx)
         if not exact(parameter_type, function_type.parameter_type):
             raise TypeError('Function expects argument of type {}, but got {}.'.format(
                 function_type.parameter_type,
@@ -958,26 +968,30 @@ class UnionType(Expression):
             raise TypeError('fields of union type must be unique')
         if len(self.alternatives) == 0:
             return TypeBuiltin(), CTX_EMPTY
-        typ = self.alternatives[0][1].normalized_type(type_ctx)
+        typ = self.alternatives[0][1].substitute_many(self.context).normalized_type(type_ctx)
         if typ not in (TypeBuiltin(), KindBuiltin(), SortBuiltin()):
             raise TypeError('only Types, Kind and Sorts are allowed for union type alternatives')
         for a in self.alternatives[1:]:
-            alternative_typ = a[1].normalized_type(type_ctx)
+            alternative_typ = a[1].substitute_many(self.context).normalized_type(type_ctx)
             if typ != alternative_typ:
                 raise TypeError('all fields on union type must have the same type')
         return typ, CTX_EMPTY
 
     def _normalized(self, ctx):
-        return UnionType([
-            (name, expr.normalized(ctx))
-            for name, expr in self.alternatives
-        ])
+        new = super()._normalized(ctx)
+        return attr.evolve(
+            new,
+            alternatives=sorted(new.alternatives),
+        )
 
     def map(self, f):
-        return UnionType([
-            (name, f(expr))
-            for name, expr in self.alternatives
-        ])
+        return attr.evolve(
+            self,
+            alternatives=[
+                (name, f(expr))
+                for name, expr in self.alternatives
+            ],
+        )
 
 
 @attr.s(frozen=True, auto_attribs=True)
