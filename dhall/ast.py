@@ -1,6 +1,5 @@
 from typing import Any, Optional
-import dataclasses
-from dataclasses import dataclass
+import attr
 
 from .data_structures import ShadowDict
 
@@ -67,8 +66,10 @@ def ctx2str(ctx):
     return '\n'.join(parts)
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class Expression:
+    context: ShadowDict = CTX_EMPTY
+
     def normalized(self, ctx=CTX_EMPTY):
         """Perform alpha-normalization. ctx contains new names for variables."""
         return self._normalized(ctx)
@@ -76,12 +77,16 @@ class Expression:
     def _normalized(self, ctx):
         return self.map(lambda expr: expr.normalized(ctx))
 
-    def evaluated(self, ctx=CTX_EMPTY):
-        """Perform beta-normalization. ctx contains variable values."""
-        return self._evaluated(ctx)
+    def evaluated(self):
+        """self ⇥ return"""
+        return self._evaluated()
 
-    def _evaluated(self, ctx):
-        return self.map(lambda expr: expr.evaluated(ctx))
+    def _evaluated(self):
+        context = self.context
+        return attr.evolve(
+            self,
+            context=CTX_EMPTY,
+        ).map(lambda expr: expr.substitute_many(context).evaluated())
 
     def type(self, type_ctx=CTX_EMPTY):
         """Type of this expression.
@@ -117,16 +122,28 @@ class Expression:
     def can_apply_to(self, value):
         return False
 
-    def apply(self, value, ctx):
+    def apply(self, value):
         raise NotImplementedError('{}.apply() is not implemented'.format(self.__class__))
 
     def map(self, f):
         current_expression = self
-        return dataclasses.replace(current_expression, **{
+        return attr.evolve(current_expression, **{
             k: f(v)
-            for k, v in dataclasses.asdict(current_expression).items()
+            for k, v in attr.asdict(current_expression, recurse=False).items()
             if isinstance(v, Expression)
         })
+
+    def substitute_single(self, name, value):
+        return attr.evolve(
+            self,
+            context=self.context.shadow_single(name, value),
+        )
+
+    def substitute_many(self, context):
+        return attr.evolve(
+            self,
+            context=self.context.join(context),
+        )
 
     def to_dhall(self):
         return str(self)  # TODO change to not implemented someday
@@ -136,20 +153,12 @@ class Expression:
         raise NotImplementedError('{}.to_python() is not implemented yet'.format(self.__class__))
 
 
-@dataclass(frozen=True)
-class Closure(Expression):
-    expression: Expression
-    context: ShadowDict[str, Expression] = CTX_EMPTY
-
-    def _evaluated(self, ctx):
-        return self.expression.evaluated(self.context)
-
-
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class Lambda(Expression):
     parameter_name: str
     parameter_type: Expression
     expression: Expression
+    context: ShadowDict = CTX_EMPTY
 
     def _normalized(self, ctx):
         return Lambda(
@@ -160,13 +169,14 @@ class Lambda(Expression):
             })),
         )
 
-    def _evaluated(self, ctx):
+    def _evaluated(self):
         return Lambda(
             self.parameter_name,
-            self.parameter_type.evaluated(ctx),
-            self.expression.evaluated(ctx.shadow({
-                self.parameter_name: (None, None, None),
-            })),
+            self.parameter_type.substitute_many(self.context).evaluated(),
+            self.expression.substitute_many(self.context).substitute_single(
+                self.parameter_name,
+                None,
+            ).evaluated(),
         )
 
     def _type(self, type_ctx):
@@ -184,10 +194,8 @@ class Lambda(Expression):
     def can_apply_to(self, value):
         return True
 
-    def apply(self, value, ctx):
-        return self.expression.evaluated(ctx.shadow({
-            self.parameter_name: (None, value, ctx),
-        }))
+    def apply(self, value):
+        return self.expression.substitute_single(self.parameter_name, value).evaluated()
 
     def to_dhall(self):
         return 'λ({} : {}) → {}'.format(
@@ -197,11 +205,12 @@ class Lambda(Expression):
         )
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class Conditional(Expression):
     condition: Expression
     if_true: Expression
     if_false: Expression
+    context: ShadowDict = CTX_EMPTY
 
     def _normalized(self, ctx):
         return Conditional(
@@ -211,7 +220,7 @@ class Conditional(Expression):
         )
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class LetIn(Expression):
     parameters: [(
         str,  # name
@@ -219,6 +228,7 @@ class LetIn(Expression):
         Optional[Expression],  # type
     )]
     expression: Expression
+    context: ShadowDict = CTX_EMPTY
 
     def _normalized(self, ctx):
         normalized_parameters = []
@@ -236,12 +246,14 @@ class LetIn(Expression):
             self.expression.normalized(ctx),
         )
 
-    def _evaluated(self, ctx):
+    def _evaluated(self):
+        context = self.context
         for name, value, typ in self.parameters:
-            ctx = ctx.shadow({
-                name: (None, value, ctx),
-            })
-        return self.expression.evaluated(ctx)
+            context = context.shadow_single(
+                name,
+                value.substitute_many(context),
+            )
+        return self.expression.substitute_many(context).evaluated()
 
     def _type(self, type_ctx):
         for name, value, typ in self.parameters:
@@ -272,11 +284,12 @@ class LetIn(Expression):
         return '{} in {}'.format(' '.join(lets), self.expression.to_dhall())
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class ForAll(Expression):
     parameter_name: str
     parameter_type: Expression
     expression: Expression
+    context: ShadowDict = CTX_EMPTY
 
     def _normalized(self, ctx):
         return ForAll(
@@ -287,13 +300,14 @@ class ForAll(Expression):
             })),
         )
 
-    def _evaluated(self, ctx):
+    def _evaluated(self):
         return ForAll(
             self.parameter_name,
-            self.parameter_type.evaluated(ctx),
-            self.expression.evaluated(ctx.shadow({
-                self.parameter_name: (None, None, ctx),
-            })),
+            self.parameter_type.substitute_many(self.context).evaluated(),
+            self.expression.substitute_many(self.context).substitute_single(
+                self.parameter_name,
+                None,
+            ).evaluated(),
         )
 
     def _type(self, type_ctx):
@@ -311,10 +325,11 @@ class ForAll(Expression):
         )
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class Variable(Expression):
     name: str
     scope: int = 0
+    context: ShadowDict = CTX_EMPTY
 
     def _normalized(self, ctx):
         if ctx.has(self.name, self.scope):
@@ -327,12 +342,11 @@ class Variable(Expression):
             # free variable
             return self
 
-    def _evaluated(self, ctx):
-        if ctx.has(self.name, self.scope):
-            _, value, covered_ctx = ctx.get(self.name, self.scope)
+    def _evaluated(self):
+        if self.context.has(self.name, self.scope):
+            value = self.context.get(self.name, self.scope)
             if value is not None:
-                return value.evaluated(covered_ctx)
-
+                return value.evaluated()
         return self
 
     def _type(self, type_ctx):
@@ -346,16 +360,20 @@ class Variable(Expression):
         raise TypeError('unbound variable {}'.format(self))
 
     def __str__(self):
-        return '{}@{}'.format(self.name, self.scope)
+        if self.scope == 0:
+            return self.name
+        else:
+            return '{}@{}'.format(self.name, self.scope)
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class TypeAnnotation(Expression):
     expression: Expression
     expression_type: Expression
+    context: ShadowDict = CTX_EMPTY
 
-    def _evaluated(self, ctx):
-        return self.expression.evaluated(ctx)
+    def _evaluated(self):
+        return self.expression.substitute_many(self.context).evaluated()
 
     def _type(self, type_ctx):
         self.expression_type.type(type_ctx)  # the type itself typechecks
@@ -368,32 +386,42 @@ class TypeAnnotation(Expression):
             ))
         return annotated_type, type_ctx
 
+    def to_dhall(self):
+        return '{} : {}'.format(self.expression.to_dhall(), self.expression_type.to_dhall())
 
-@dataclass(frozen=True)
+
+@attr.s(frozen=True, auto_attribs=True)
 class BinaryOperatorExpression(Expression):
     arg1: Expression
     arg2: Expression
+    context: ShadowDict = CTX_EMPTY
+
+    dhall_operator_string = None
+
+    def to_dhall(self):
+        return '({} {} {})'.format(self.arg1.to_dhall(), self.dhall_operator_string, self.arg2.to_dhall())
 
 
 class ListAppendExpression(BinaryOperatorExpression):
-    def _evaluated(self, ctx):
-        a = self.arg1.evaluated(ctx)
-        b = self.arg1.evaluated(ctx)
-        if isinstance(a, ListLiteral) and isinstance(b, ListLiteral):
-            return ListLiteral(a.items + b.items)
+    dhall_operator_string = '#'
+
+    def _evaluated(self):
+        new = super()._evaluated()
+        if isinstance(new.arg1, ListLiteral) and isinstance(new.arg2, ListLiteral):
+            return ListLiteral(new.arg1.items + new.arg2.items)
         else:
-            return self.__class__(a, b)
+            return new
 
 
-@dataclass(frozen=True)
 class ApplicationExpression(BinaryOperatorExpression):
-    def _evaluated(self, ctx):
-        f = self.arg1.evaluated(ctx)
-        arg = self.arg2.evaluated(ctx)
+    def _evaluated(self):
+        new = super()._evaluated()
+        f = new.arg1
+        arg = new.arg2
         if f.can_apply_to(arg):
-            return f.apply(arg, ctx)
+            return f.apply(arg)
         else:
-            return ApplicationExpression(f, arg)
+            return new
 
     def _type(self, type_ctx):
         function_type = self.arg1.normalized_type(type_ctx)
@@ -413,11 +441,12 @@ class ApplicationExpression(BinaryOperatorExpression):
         return '({} {})'.format(self.arg1.to_dhall(), self.arg2.to_dhall())
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class MergeExpression(Expression):
     handlers: Expression
     union: Expression
     result_type: Optional[Expression] = None
+    context: ShadowDict = CTX_EMPTY
 
     def _type(self, type_ctx):
         handlers_type = self.handlers.normalized_type(type_ctx)
@@ -475,29 +504,37 @@ class MergeExpression(Expression):
 
 
 class NaturalMathExpression(BinaryOperatorExpression):
-    def _evaluated(self, ctx):
-        a = self.arg1.evaluated(ctx)
-        b = self.arg2.evaluated(ctx)
+    def _evaluated(self):
+        new = super()._evaluated()
+        a = new.arg1
+        b = new.arg2
         if isinstance(a, NaturalLiteral) and isinstance(b, NaturalLiteral):
             return NaturalLiteral(self._value(a.value, b.value))
         else:
-            return self.__class__(a, b)
+            return new
 
 
 class Plus(NaturalMathExpression):
+    dhall_operator_string = '+'
+
     def _value(self, a, b):
         return a + b
 
 
 class Times(NaturalMathExpression):
+    dhall_operator_string = '*'
+
     def _value(self, a, b):
         return a * b
 
 
 class Or(BinaryOperatorExpression):
-    def _evaluated(self, ctx):
-        a = self.arg1.evaluated(ctx)
-        b = self.arg2.evaluated(ctx)
+    dhall_operator_string = '||'
+
+    def _evaluated(self):
+        new = super()._evaluated()
+        a = new.arg1
+        b = new.arg2
         if isinstance(a, BooleanLiteral):
             if a.value:
                 return BooleanLiteral(True)
@@ -511,13 +548,16 @@ class Or(BinaryOperatorExpression):
         elif a.normalized() == b.normalized():
             return a
         else:
-            return self.__class__(a, b)
+            return new
 
 
 class And(BinaryOperatorExpression):
-    def _evaluated(self, ctx):
-        a = self.arg1.evaluated(ctx)
-        b = self.arg2.evaluated(ctx)
+    dhall_operator_string = '&&'
+
+    def _evaluated(self):
+        new = super()._evaluated()
+        a = new.arg1
+        b = new.arg2
         if isinstance(a, BooleanLiteral):
             if not a.value:
                 return BooleanLiteral(False)
@@ -531,19 +571,21 @@ class And(BinaryOperatorExpression):
         elif a.normalized() == b.normalized():
             return a
         else:
-            return self.__class__(a, b)
+            return new
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class ImportExpression(Expression):
     source: Any
+    context: ShadowDict = CTX_EMPTY
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class SelectExpression(Expression):
     """Select a field from a record"""
     expression: Expression
     label: str
+    context: ShadowDict = CTX_EMPTY
 
     def _type(self, type_ctx):
         if isinstance(self.expression, UnionType):
@@ -565,11 +607,12 @@ class SelectExpression(Expression):
         raise TypeError('Can\'t select from {}'.format(self.expression))
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class ProjectionExpression(Expression):
     """Select few field from a record and make a new record out of them"""
     expression: Expression
     labels: [str]
+    context: ShadowDict = CTX_EMPTY
 
     def _type(self, type_ctx):
         expression_type = self.expression.type(type_ctx)
@@ -584,15 +627,30 @@ class ProjectionExpression(Expression):
 # literals
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class ListLiteral(Expression):
     items: [Expression]
     element_type: Optional[Expression] = None  # needed for empty lists
+    context: ShadowDict = CTX_EMPTY
+
+    def map(self, f):
+        return attr.evolve(
+            self,
+            items=[f(expr) for expr in self.items],
+            element_type=None if self.element_type is None else f(self.element_type),
+        )
+
+    def to_dhall(self):
+        if self.items:
+            return '[{}]'.format(', '.join([expr.to_dhall() for expr in self.items]))
+        else:
+            return '[] : {}'.format(self.element_type.to_dhall())
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class RecordLiteral(Expression):
     fields: [(str, Expression)]
+    context: ShadowDict = CTX_EMPTY
 
     def map(self, f):
         return RecordLiteral([
@@ -611,11 +669,12 @@ class RecordLiteral(Expression):
         return dict(self.fields)
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class Union(Expression):
     label: str
     value: Expression
     alternatives: [(str, Expression)]
+    context: ShadowDict = CTX_EMPTY
 
     def _type(self, type_ctx):
         if not unique([self.label] + [a[0] for a in self.alternatives]):
@@ -624,50 +683,56 @@ class Union(Expression):
         return UnionType([(self.label, self.value.type(type_ctx)[0])] + self.alternatives), type_ctx
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class OptionalLiteral(Expression):
     wrapped: Optional[Expression] = None
+    context: ShadowDict = CTX_EMPTY
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class DoubleLiteral(Expression):
     value: float
+    context: ShadowDict = CTX_EMPTY
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class NaturalLiteral(Expression):
     value: int
+    context: ShadowDict = CTX_EMPTY
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class TextLiteral(Expression):
     chunks: [str]
+    context: ShadowDict = CTX_EMPTY
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class BooleanLiteral(Expression):
     value: bool
+    context: ShadowDict = CTX_EMPTY
+
+    def to_dhall(self):
+        return str(self.value)
 
 
 # ### builtins ###
 
 
-@dataclass(frozen=True)
 class BuiltinExpression(Expression):
+    builtin_type = None
+    dhall_string = None
+
     def _type(self, type_ctx):
         return self.builtin_type, CTX_EMPTY
 
     def _normalized(self, ctx):
         return self
 
-    def _evaluated(self, ctx):
-        return self
-
     def to_dhall(self):
         return self.dhall_string
 
 
-@dataclass(frozen=True)
 class SortBuiltin(BuiltinExpression):
     dhall_string = 'Sort'
 
@@ -675,62 +740,61 @@ class SortBuiltin(BuiltinExpression):
         raise TypeError('it\'s impossible to infer type of `Sort`')
 
 
-@dataclass(frozen=True)
 class KindBuiltin(BuiltinExpression):
     builtin_type = SortBuiltin()
     dhall_string = 'Kind'
 
 
-@dataclass(frozen=True)
 class TypeBuiltin(BuiltinExpression):
     builtin_type = KindBuiltin()
     dhall_string = 'Type'
 
 
-@dataclass(frozen=True)
 class BoolBuiltin(BuiltinExpression):
     builtin_type = TypeBuiltin()
     dhall_string = 'Bool'
 
 
-@dataclass(frozen=True)
 class NaturalBuiltin(BuiltinExpression):
     builtin_type = TypeBuiltin()
     dhall_string = 'Natural'
 
 
-@dataclass(frozen=True)
 class DoubleBuiltin(BuiltinExpression):
     builtin_type = TypeBuiltin()
     dhall_string = 'Double'
 
 
-@dataclass(frozen=True)
 class TextBuiltin(BuiltinExpression):
     builtin_type = TypeBuiltin()
     dhall_string = 'Text'
 
 
-@dataclass(frozen=True)
 class ListBuiltin(BuiltinExpression):
     builtin_type = ForAll(DEFAULT_VARIABLE_NAME, TypeBuiltin(), TypeBuiltin())
     dhall_string = 'List'
 
+    def can_apply_to(self, value):
+        return True
 
-@dataclass(frozen=True)
+    def apply(self, value):
+        return ListType(value)
+
+
 class ListBuild(BuiltinExpression):
     dhall_string = 'List/build'
 
     def can_apply_to(self, value):
         return True
 
-    def apply(self, value, ctx):
-        return ListBuildTyped(Closure(value, ctx))
+    def apply(self, value):
+        return ListBuildTyped(value)
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class ListBuildTyped(Expression):
     element_type: Expression
+    context: ShadowDict = CTX_EMPTY
 
     @property
     def list_type_expression(self):
@@ -756,7 +820,7 @@ class ListBuildTyped(Expression):
     def can_apply_to(self, value):
         return True
 
-    def apply(self, value, ctx):
+    def apply(self, value):
         if (
             isinstance(value, ApplicationExpression) and
             isinstance(value.arg1, ListFoldTyped)
@@ -772,15 +836,13 @@ class ListBuildTyped(Expression):
                 self.cons_expression,
             ),
             self.nil_expression,
-        ).evaluated(ctx)
+        ).evaluated()
 
 
-@dataclass(frozen=True)
 class ListFold(BuiltinExpression):
     dhall_string = 'List/fold'
 
 
-@dataclass(frozen=True)
 class DoubleShowBuiltin(BuiltinExpression):
     builtin_type = ForAll(DEFAULT_VARIABLE_NAME, DoubleBuiltin(), TextBuiltin())
     dhall_string = 'Double/show'
@@ -788,7 +850,7 @@ class DoubleShowBuiltin(BuiltinExpression):
     def can_apply_to(self, value):
         return isinstance(value, DoubleLiteral)
 
-    def apply(self, value, ctx):
+    def apply(self, value):
         return TextLiteral([c for c in str(value.value)])
 
 
@@ -826,14 +888,19 @@ def make_builtin_or_variable(name):
 # types
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class ListType(Expression):
     items_type: Expression
+    context: ShadowDict = CTX_EMPTY
+
+    def to_dhall(self):
+        return 'List {}'.format(self.items_type.to_dhall())
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class RecordType(Expression):
     fields: [(str, Expression)]
+    context: ShadowDict = CTX_EMPTY
 
     @property
     def fields_dict(self):
@@ -869,9 +936,10 @@ class RecordType(Expression):
         raise TypeError("all record type members must be of type Type, or all must be of type Kind or Sort")
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class UnionType(Expression):
     alternatives: [(str, Expression)]
+    context: ShadowDict = CTX_EMPTY
 
     @property
     def alternatives_dict(self):
@@ -897,13 +965,14 @@ class UnionType(Expression):
             for name, expr in self.alternatives
         ])
 
-    def _evaluated(self, ctx):
-        return UnionType(sorted([
-            (name, expr.evaluated(ctx))
+    def map(self, f):
+        return UnionType([
+            (name, f(expr))
             for name, expr in self.alternatives
-        ]))
+        ])
 
 
-@dataclass
+@attr.s(frozen=True, auto_attribs=True)
 class OptionalType(Expression):
     wrapped: Expression
+    context: ShadowDict = CTX_EMPTY

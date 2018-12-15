@@ -23,6 +23,16 @@ class ShadowDict(Generic[KT, VT]):
             new_entries[n] = new_entries.get(n, pvector()).append((v, new_generation))
         return ShadowDict(new_entries, new_generation)
 
+    def shadow_single(self, name, value):
+        return self.shadow({name: value})
+
+    def join(self, other):
+        entries = dict(self.entries)
+        for k, vs in other.entries.items():
+            old_vs = entries.get(k, pvector())
+            entries[k] = old_vs + vs
+        return ShadowDict(entries, self.generation)
+
     def has(self, name: KT, scope: int = 0) -> bool:
         return len(self.entries.get(name, [])) > scope
 
