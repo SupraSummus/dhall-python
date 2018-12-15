@@ -1,18 +1,19 @@
-from dataclasses import dataclass, field
 from typing import Generic, TypeVar, Dict, Sequence, Tuple
 
+import attr
 from pyrsistent import pvector
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 
-@dataclass(frozen=True)
+@attr.s(frozen=True, auto_attribs=True)
 class ShadowDict(Generic[KT, VT]):
     """An immutable dict that rememers all inserted values, even if they
     were shadowed (overwritten) later. Immutable dict remembers also age of
     each insertion."""
-    entries: Dict[KT, Sequence[Tuple[VT, int]]] = field(default_factory=dict)
+    entries: Dict[KT, Sequence[Tuple[VT, int]]]
+    entries = attr.ib(default=attr.Factory(dict))
     generation: int = 0
 
     def shadow(self, entries: Dict[KT, VT]) -> 'ShadowDict[KT, VT]':
