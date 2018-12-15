@@ -1,7 +1,6 @@
 from setuptools import setup
 from distutils.command.build import build
 import subprocess
-import sys
 
 
 def compile_parser():

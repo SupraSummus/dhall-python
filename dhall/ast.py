@@ -170,13 +170,14 @@ class Lambda(Expression):
         )
 
     def _evaluated(self):
-        return Lambda(
-            self.parameter_name,
-            self.parameter_type.substitute_many(self.context).evaluated(),
-            self.expression.substitute_many(self.context).substitute_single(
+        return attr.evolve(
+            self,
+            parameter_type=self.parameter_type.substitute_many(self.context).evaluated(),
+            expression=self.expression.substitute_many(self.context).substitute_single(
                 self.parameter_name,
                 None,
             ).evaluated(),
+            context=CTX_EMPTY,
         )
 
     def _type(self, type_ctx):
@@ -301,13 +302,14 @@ class ForAll(Expression):
         )
 
     def _evaluated(self):
-        return ForAll(
-            self.parameter_name,
-            self.parameter_type.substitute_many(self.context).evaluated(),
-            self.expression.substitute_many(self.context).substitute_single(
+        return attr.evolve(
+            self,
+            parameter_type=self.parameter_type.substitute_many(self.context).evaluated(),
+            expression=self.expression.substitute_many(self.context).substitute_single(
                 self.parameter_name,
                 None,
             ).evaluated(),
+            context=CTX_EMPTY,
         )
 
     def _type(self, type_ctx):
@@ -841,6 +843,12 @@ class ListBuildTyped(Expression):
 
 class ListFold(BuiltinExpression):
     dhall_string = 'List/fold'
+
+
+@attr.s(frozen=True, auto_attribs=True)
+class ListFoldTyped(Expression):
+    element_type: Expression
+    context: ShadowDict = CTX_EMPTY
 
 
 class DoubleShowBuiltin(BuiltinExpression):
