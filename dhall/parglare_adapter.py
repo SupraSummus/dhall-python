@@ -60,7 +60,7 @@ def to_parglare_grammar(productions_dict, terminals_dict, start, **kwargs):
             ))
 
     start_non_terminal = parglare.NonTerminal('__start')
-    productions.append(parglare.grammar.Production(
+    productions.insert(0, parglare.grammar.Production(
         start_non_terminal,
         parglare.grammar.ProductionRHS([non_terminals[start], parglare.EOF]),
     ))

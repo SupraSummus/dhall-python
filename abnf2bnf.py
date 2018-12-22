@@ -42,6 +42,7 @@ abnf_grammar, start_symbol = to_parglare_grammar(
             ['%x', 'hex_string'],
             ['%d', 'dec_string'],
             ['"', 'quoted_string', '"'],
+            ['"', '"'],
         ],
 
         '_?': [['_'], []],
@@ -63,7 +64,7 @@ abnf_grammar, start_symbol = to_parglare_grammar(
         'dot': ('string', '.'),
         'hex': ('regexp', r'[0-9A-Fa-f]+'),
         'identifier': ('regexp', r'[a-zA-Z][0-9a-zA-Z\-_]*'),
-        'quoted_string': ('regexp', r'[^"]*'),
+        'quoted_string': ('regexp', r'[^"]+'),
         '%x': ('string', r'%x'),
     },
     'start',
@@ -99,7 +100,6 @@ with timeit('making grammar parser'):
 
     abnf_parser = parglare.GLRParser(
         abnf_grammar,
-        start_production=start_symbol,
         ws='',
         actions={
             'dec?': parglare.actions.optional,
@@ -112,6 +112,7 @@ with timeit('making grammar parser'):
                 lambda _, c: ''.join(map(chr, c[1])),
                 lambda _, c: ''.join(map(chr, c[1])),
                 take_raw(1),
+                lambda _, c: '',
             ],
             'definition0': [
                 lambda _, c: Alternative((c[0], c[4])),
