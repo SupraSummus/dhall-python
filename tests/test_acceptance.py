@@ -82,6 +82,7 @@ class TypecheckSuccessSimpleTestCase(TestCase):
         'anonymousFunctionsInTypes': tests['anonymousFunctionsInTypes'],
         'fieldsAreTypes': tests['fieldsAreTypes'],
         'kindParameter': tests['kindParameter'],
+        'mergeEquvalence': tests['mergeEquivalence'],
     }
 
     @parameterized.expand(sorted(selected_tests.items()))

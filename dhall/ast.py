@@ -69,24 +69,31 @@ def ctx2str(ctx):
 @attr.s(frozen=True, auto_attribs=True)
 class Expression:
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def normalized(self, ctx=CTX_EMPTY):
         """Perform alpha-normalization. ctx contains new names for variables."""
         return self._normalized(ctx)
 
     def _normalized(self, ctx):
-        return self.map(lambda expr: expr.normalized(ctx))
+        return attr.evolve(
+            self,
+            context=CTX_EMPTY,
+            types=CTX_EMPTY,
+        ).map(lambda expr: expr.pass_context(self).normalized(ctx))
 
     def evaluated(self):
         """self ⇥ return"""
         return self._evaluated()
 
     def _evaluated(self):
-        context = self.context
         return attr.evolve(
             self,
             context=CTX_EMPTY,
-        ).map(lambda expr: expr.substitute_many(context).evaluated())
+            types=CTX_EMPTY,
+        ).map(lambda expr: expr.pass_context(self).evaluated())
 
     def type(self, type_ctx=CTX_EMPTY):
         """Type of this expression.
@@ -100,10 +107,12 @@ class Expression:
                 (
                     "when type-infering\n"
                     "\t`{}`\n"
-                    "{}"
+                    "types:\n{}\n"
+                    "values:\n{}"
                 ).format(
                     self.to_dhall(),
-                    ctx2str(type_ctx),
+                    increase_indent(str(self.types)),
+                    increase_indent(str(self.context)),
                 ),
             )
 
@@ -133,16 +142,41 @@ class Expression:
             if isinstance(v, Expression)
         })
 
-    def substitute_single(self, name, value):
+    def pass_context(self, other):
+        return attr.evolve(
+            self,
+            context=other.context.join(self.context),
+            types=other.types.join(self.types),
+        )
+
+    def bind_value(self, name, value):
         return attr.evolve(
             self,
             context=self.context.shadow_single(name, value),
         )
 
-    def substitute_many(self, context):
+    def bind_type(self, name, typ):
         return attr.evolve(
             self,
-            context=self.context.join(context),
+            types=self.types.shadow_single(name, typ),
+        )
+
+    def bind_values(self, context):
+        return attr.evolve(
+            self,
+            context=context.join(self.context),
+        )
+
+    def bind_types(self, types):
+        return attr.evolve(
+            self,
+            types=types.join(self.types),
+        )
+
+    def unshadow(self, name):
+        return attr.evolve(
+            self,
+            context=self.context.unshadow(name),
         )
 
     def to_dhall(self):
@@ -159,32 +193,41 @@ class Lambda(Expression):
     parameter_type: Expression
     expression: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _normalized(self, ctx):
         return Lambda(
             DEFAULT_VARIABLE_NAME,
-            self.parameter_type.normalized(ctx),
-            self.expression.normalized(ctx.shadow({
+            self.parameter_type.pass_context(self).normalized(ctx),
+            self.expression.pass_context(self).normalized(ctx.shadow({
                 self.parameter_name: DEFAULT_VARIABLE_NAME,
             })),
         )
 
     def _evaluated(self):
+        parameter_type = self.parameter_type.pass_context(self).evaluated()
         return attr.evolve(
             self,
-            parameter_type=self.parameter_type.substitute_many(self.context).evaluated(),
-            expression=self.expression.substitute_many(self.context).substitute_single(
+            parameter_type=parameter_type,
+            expression=self.expression.pass_context(self.bind_value(
                 self.parameter_name,
                 None,
-            ).evaluated(),
+            )).evaluated(),
             context=CTX_EMPTY,
+            types=CTX_EMPTY,
         )
 
     def _type(self, type_ctx):
-        parameter_type = self.parameter_type.substitute_many(self.context)
-        expression_type, expression_type_ctx = self.expression.substitute_many(self.context).type(type_ctx.shadow({
-            self.parameter_name: (parameter_type, None, type_ctx),
-        }))
+        parameter_type = self.parameter_type.pass_context(self)
+        expression_type, expression_type_ctx = self.expression.pass_context(self.bind_type(
+            self.parameter_name,
+            parameter_type,
+        ).bind_value(
+            self.parameter_name,
+            None,
+        )).type(type_ctx)
         lambda_type = ForAll(
             self.parameter_name,
             parameter_type,
@@ -197,7 +240,7 @@ class Lambda(Expression):
         return True
 
     def apply(self, value):
-        return self.expression.substitute_single(self.parameter_name, value).evaluated()
+        return self.expression.pass_context(self).bind_value(self.parameter_name, value).evaluated()
 
     def to_dhall(self):
         return 'λ({} : {}) → {}'.format(
@@ -213,13 +256,9 @@ class Conditional(Expression):
     if_true: Expression
     if_false: Expression
     context: ShadowDict = CTX_EMPTY
-
-    def _normalized(self, ctx):
-        return Conditional(
-            self.condition.normalized(ctx),
-            self.if_true.normalized(ctx),
-            self.if_false.normalized(ctx),
-        )
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -231,41 +270,45 @@ class LetIn(Expression):
     )]
     expression: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _normalized(self, ctx):
         normalized_parameters = []
         for name, value, typ in self.parameters:
             normalized_parameters.append((
                 DEFAULT_VARIABLE_NAME,
-                value.normalized(ctx),
-                None if typ is None else typ.normalized(ctx),
+                value.pass_context(self).normalized(ctx),
+                None if typ is None else typ.pass_context(self).normalized(ctx),
             ))
             ctx = ctx.shadow({
                 name: DEFAULT_VARIABLE_NAME,
             })
         return LetIn(
             normalized_parameters,
-            self.expression.normalized(ctx),
+            self.expression.pass_context(self).normalized(ctx),
         )
 
     def _evaluated(self):
-        context = self.context
+        context = CTX_EMPTY
         for name, value, typ in self.parameters:
             context = context.shadow_single(
                 name,
-                value.substitute_many(context),
+                value.pass_context(self).bind_values(context),
             )
-        return self.expression.substitute_many(context).evaluated()
+        return self.expression.pass_context(self).bind_values(context).evaluated()
 
     def _type(self, type_ctx):
-        context = self.context
+        values = CTX_EMPTY
+        types = CTX_EMPTY
         for name, value, typ in self.parameters:
-            value = value.substitute_many(context)
+            value = value.pass_context(self).bind_values(values).bind_types(types)
             value_type, value_type_ctx = value.type(type_ctx)
 
             # verify against annotation
             if typ is not None:
-                typ = typ.substitute_many(context)
+                typ = typ.pass_context(self).bind_values(values).bind_types(types)
                 typ.type(type_ctx)  # type annotation typechecks itself
                 if not exact(typ, value_type):
                     raise TypeError('annotation\n\t{} doesn\'t match expression type\n\t{}'.format(
@@ -273,9 +316,10 @@ class LetIn(Expression):
                         value_type.to_dhall(),
                     ))
 
-            context = context.shadow_single(name, value)
+            values = values.shadow_single(name, value)
+            types = types.shadow_single(name, None)
 
-        return self.expression.substitute_many(context).type(type_ctx)
+        return self.expression.pass_context(self).bind_values(values).bind_types(types).type(type_ctx)
 
     def to_dhall(self):
         lets = []
@@ -293,33 +337,42 @@ class ForAll(Expression):
     parameter_type: Expression
     expression: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _normalized(self, ctx):
         return ForAll(
             DEFAULT_VARIABLE_NAME,
-            self.parameter_type.normalized(ctx),
-            self.expression.normalized(ctx.shadow({
+            self.parameter_type.pass_context(self).normalized(ctx),
+            self.expression.pass_context(self).normalized(ctx.shadow({
                 self.parameter_name: DEFAULT_VARIABLE_NAME,
             })),
         )
 
     def _evaluated(self):
+        parameter_type = self.parameter_type.pass_context(self).evaluated()
         return attr.evolve(
             self,
-            parameter_type=self.parameter_type.substitute_many(self.context).evaluated(),
-            expression=self.expression.substitute_many(self.context).substitute_single(
+            parameter_type=parameter_type,
+            expression=self.expression.pass_context(self.bind_value(
                 self.parameter_name,
                 None,
-            ).evaluated(),
+            )).evaluated(),
             context=CTX_EMPTY,
+            types=CTX_EMPTY,
         )
 
     def _type(self, type_ctx):
-        parameter_type = self.parameter_type.substitute_many(self.context)
+        parameter_type = self.parameter_type.pass_context(self)
         parameter_type_type = parameter_type.normalized_type(type_ctx)
-        expression_type = self.expression.substitute_many(self.context).normalized_type(type_ctx.shadow({
-            self.parameter_name: (parameter_type, None, type_ctx),
-        }))
+        expression_type = self.expression.pass_context(self.bind_type(
+            self.parameter_name,
+            parameter_type,
+        ).bind_value(
+            self.parameter_name,
+            None,
+        )).normalized_type(type_ctx)
         return function_check(parameter_type_type, expression_type), CTX_EMPTY
 
     def to_dhall(self):
@@ -335,37 +388,53 @@ class Variable(Expression):
     name: str
     scope: int = 0
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _normalized(self, ctx):
-        if ctx.has(self.name, self.scope):
-            # bound variable
-            return Variable(
-                ctx.get(self.name, self.scope),
-                ctx.age(self.name, self.scope),
-            )
-        else:
-            # free variable
-            return self
+        if self.context.has(self.name, self.scope):
+            value = self.context.get(self.name, self.scope)
+            if value is None:
+                # variable is bound, but has no value
+                if ctx.has(self.name, self.scope):
+                    new_name = ctx.get(self.name, self.scope)
+                    new_scope = ctx.age(self.name, self.scope)
+                    new_types = CTX_EMPTY
+                    if self.types.has(self.name, self.scope):
+                        typ = self.types.get(self.name, self.scope)
+                        new_types = CTX_EMPTY.shadow_single(new_name, typ)
+                        for i in range(new_scope):
+                            new_types.shadow_single(new_name, None)
+                    return Variable(
+                        new_name,
+                        new_scope,
+                        types=new_types,
+                    )
+            else:
+                # variable needs to be substituted with value
+                return value.normalized(ctx)
+
+        # free variable
+        return self
 
     def _evaluated(self):
         if self.context.has(self.name, self.scope):
             value = self.context.get(self.name, self.scope)
             if value is not None:
                 return value.evaluated()
-        return self
+        return attr.evolve(self, context=CTX_EMPTY)
 
     def _type(self, type_ctx):
         if self.context.has(self.name, self.scope):
             value = self.context.get(self.name, self.scope)
             if value is not None:
-                return value.type(type_ctx)
+                return value.type()
 
-        if type_ctx.has(self.name, self.scope):
-            typ, value, covered_ctx = type_ctx.get(self.name, self.scope)
-            if value is not None:
-                return value.type(covered_ctx)
+        if self.types.has(self.name, self.scope):
+            typ = self.types.get(self.name, self.scope)
             if typ is not None:
-                return typ, covered_ctx
+                return typ, None
 
         raise TypeError('unbound variable {}'.format(self))
 
@@ -381,17 +450,20 @@ class TypeAnnotation(Expression):
     expression: Expression
     expression_type: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _evaluated(self):
-        return self.expression.substitute_many(self.context).evaluated()
+        return self.expression.pass_context(self).evaluated()
 
     def _type(self, type_ctx):
-        annotated_type = self.expression_type.substitute_many(self.context)
+        annotated_type = self.expression_type.pass_context(self)
         annotated_type.type(type_ctx)  # the type itself typechecks
-        typ, typ_ctx = self.expression.substitute_many(self.context).type(type_ctx)
+        typ, typ_ctx = self.expression.pass_context(self).type(type_ctx)
         if not exact(typ, annotated_type):
             raise TypeError('annotation\n\t`{}` doesn\'t match expression type\n\t`{}`'.format(
-                self.expression_type.to_dhall(),
+                annotated_type.to_dhall(),
                 typ.to_dhall(),
             ))
         return annotated_type, type_ctx
@@ -405,6 +477,9 @@ class BinaryOperatorExpression(Expression):
     arg1: Expression
     arg2: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     dhall_operator_string = None
 
@@ -425,29 +500,29 @@ class ListAppendExpression(BinaryOperatorExpression):
 
 class ApplicationExpression(BinaryOperatorExpression):
     def _evaluated(self):
-        new = super()._evaluated()
-        f = new.arg1
-        arg = new.arg2
+        f = self.arg1.pass_context(self).evaluated()
+        arg = self.arg2.pass_context(self)
         if f.can_apply_to(arg):
             return f.apply(arg)
         else:
-            return new
+            return ApplicationExpression(f, arg.evaluated())
 
     def _type(self, type_ctx):
-        f = self.arg1.substitute_many(self.context)
-        arg = self.arg2.substitute_many(self.context)
+        f = self.arg1.pass_context(self)
+        arg = self.arg2.pass_context(self)
         function_type = f.normalized_type(type_ctx)
         if not isinstance(function_type, ForAll):
-            raise TypeError('couldnt apply non-function `{}`'.format(arg.to_dhall()))
+            raise TypeError('couldnt apply non-function `{}`'.format(f.to_dhall()))
         parameter_type, parameter_type_ctx = arg.type(type_ctx)
         if not exact(parameter_type, function_type.parameter_type):
             raise TypeError('Function expects argument of type {}, but got {}.'.format(
                 function_type.parameter_type,
                 parameter_type,
             ))
-        return function_type.expression, type_ctx.shadow({
-            function_type.parameter_name: (None, self.arg2, parameter_type_ctx),
-        })
+        return function_type.expression.bind_value(
+            function_type.parameter_name,
+            arg,
+        ), None
 
     def to_dhall(self):
         return '({} {})'.format(self.arg1.to_dhall(), self.arg2.to_dhall())
@@ -459,18 +534,23 @@ class MergeExpression(Expression):
     union: Expression
     result_type: Optional[Expression] = None
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _type(self, type_ctx):
-        handlers_type = self.handlers.normalized_type(type_ctx)
+        handlers = self.handlers.pass_context(self)
+        handlers_type = handlers.normalized_type(type_ctx)
         if not isinstance(handlers_type, RecordType):
             raise TypeError("expected record as a first argument to `merge` but `{}` has type `{}`".format(
-                self.handlers.to_dhall(), handlers_type.to_dhall(),
+                handlers.to_dhall(), handlers_type.to_dhall(),
             ))
 
-        union_type = self.union.normalized_type(type_ctx)
+        union = self.union.pass_context(self)
+        union_type = union.normalized_type(type_ctx)
         if not isinstance(union_type, UnionType):
             raise TypeError("expected union as a second argument to `merge` but `{}` has type `{}`".format(
-                self.union.to_dhall(), union_type.to_dhall(),
+                union.to_dhall(), union_type.to_dhall(),
             ))
 
         handlers_type_fields = sorted(handlers_type.fields)
@@ -480,13 +560,11 @@ class MergeExpression(Expression):
             raise TypeError("union and handlers must have exactly same field names set")
 
         output_type = None
-        output_type_ctx = None
         if self.result_type is not None:
-            output_type = self.result_type.evaluated(type_ctx)
-            output_type_ctx = type_ctx
+            output_type = self.result_type.pass_context(self)
         for (name, handler_type), (_, input_type) in zip(handlers_type_fields, union_type_alternatives):
             if not isinstance(handler_type, ForAll):
-                raise TypeError("handler for field `{}` is not a function, but {}".format(
+                raise TypeError("handler for field `{}` is not a function, but `{}`".format(
                     name,
                     handler_type.to_dhall(),
                 ))
@@ -497,22 +575,18 @@ class MergeExpression(Expression):
                     input_type.format(),
                 ))
             new_output_type = handler_type.expression
-            new_output_type_ctx = type_ctx.shadow({
-                handler_type.parameter_name: (None, None, None),  # require that this is not a free variable
-            })
             if output_type is not None:
-                if output_type.evaluated(output_type_ctx).normalized() != new_output_type.evaluated(new_output_type_ctx).normalized():
-                    raise TypeError('not matching handlers output types: `{}` and `{}`'.format(
+                if output_type.evaluated().normalized() != new_output_type.evaluated().normalized():
+                    raise TypeError('handlers output types do not match: `{}` and `{}`'.format(
                         output_type.to_dhall(),
                         new_output_type.to_dhall(),
                     ))
             output_type = new_output_type
-            output_type_ctx = new_output_type_ctx
 
         if output_type is None:
             raise TypeError('empty merge expression without type annotation')
         else:
-            return output_type, output_type_ctx
+            return output_type, None
 
 
 class NaturalMathExpression(BinaryOperatorExpression):
@@ -590,6 +664,9 @@ class And(BinaryOperatorExpression):
 class ImportExpression(Expression):
     source: Any
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -598,23 +675,28 @@ class SelectExpression(Expression):
     expression: Expression
     label: str
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _type(self, type_ctx):
-        if isinstance(self.expression, UnionType):
+        expression = self.expression.pass_context(self).evaluated()
+
+        if isinstance(expression, UnionType):
             # select from union type yields an union constructor
-            self.expression.type(type_ctx)
+            expression.type(type_ctx)
             return ForAll(
                 DEFAULT_VARIABLE_NAME,
-                self.expression.alternatives_dict[self.label],
-                self.expression,
+                expression.alternatives_dict[self.label],
+                expression,
             ), type_ctx.shadow({
                 DEFAULT_VARIABLE_NAME: (None, None, None),
             })
 
-        if isinstance(self.expression, RecordLiteral):
+        if isinstance(expression, RecordLiteral):
             # select from a record yields record field value
-            self.expression.type(type_ctx)
-            return self.expression.fields_dict[self.label].type(type_ctx)
+            expression.type(type_ctx)
+            return expression.fields_dict[self.label].type(type_ctx)
 
         raise TypeError('Can\'t select from {}'.format(self.expression))
 
@@ -625,9 +707,12 @@ class ProjectionExpression(Expression):
     expression: Expression
     labels: [str]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def _type(self, type_ctx):
-        expression_type = self.expression.type(type_ctx)
+        expression_type = self.expression.pass_context(self).type(type_ctx)
         if not isinstance(expression_type, RecordType):
             raise TypeError('expresion to select fields from must be a record')
         return RecordType([
@@ -644,6 +729,9 @@ class ListLiteral(Expression):
     items: [Expression]
     element_type: Optional[Expression] = None  # needed for empty lists
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def map(self, f):
         return attr.evolve(
@@ -663,16 +751,22 @@ class ListLiteral(Expression):
 class RecordLiteral(Expression):
     fields: [(str, Expression)]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def map(self, f):
-        return RecordLiteral([
-            (k, f(v))
-            for k, v in self.fields
-        ])
+        return attr.evolve(
+            self,
+            fields=[
+                (k, f(v))
+                for k, v in self.fields
+            ],
+        )
 
     def _type(self, type_ctx):
         return RecordType([
-            (l, val.type(type_ctx)[0])
+            (l, val.pass_context(self).type(type_ctx)[0])
             for l, val in self.fields
         ]), type_ctx
 
@@ -687,42 +781,78 @@ class Union(Expression):
     value: Expression
     alternatives: [(str, Expression)]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+
+    def map(self, f):
+        return attr.evolve(
+            self,
+            value=f(self.value),
+            alternatives=[
+                (k, f(v))
+                for k, v in self.alternatives
+            ],
+        )
 
     def _type(self, type_ctx):
         if not unique([self.label] + [a[0] for a in self.alternatives]):
             raise TypeError('nonunique union labels')
         # TODO verify that all expressions are types
-        return UnionType([(self.label, self.value.type(type_ctx)[0])] + self.alternatives), type_ctx
+        return UnionType(
+            [(
+                self.label,
+                self.value.pass_context(self).type(type_ctx)[0],
+            )] + [
+                (name, typ.pass_context(self))
+                for name, typ in self.alternatives
+            ]
+        ), type_ctx
 
 
 @attr.s(frozen=True, auto_attribs=True)
 class OptionalLiteral(Expression):
     wrapped: Optional[Expression] = None
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
 class DoubleLiteral(Expression):
     value: float
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
 class NaturalLiteral(Expression):
     value: int
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
 class TextLiteral(Expression):
     chunks: [str]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 @attr.s(frozen=True, auto_attribs=True)
 class BooleanLiteral(Expression):
     value: bool
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def to_dhall(self):
         return str(self.value)
@@ -807,6 +937,9 @@ class ListBuild(BuiltinExpression):
 class ListBuildTyped(Expression):
     element_type: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     @property
     def list_type_expression(self):
@@ -859,6 +992,9 @@ class ListFold(BuiltinExpression):
 class ListFoldTyped(Expression):
     element_type: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
 
 class DoubleShowBuiltin(BuiltinExpression):
@@ -910,6 +1046,9 @@ def make_builtin_or_variable(name):
 class ListType(Expression):
     items_type: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     def to_dhall(self):
         return 'List {}'.format(self.items_type.to_dhall())
@@ -919,28 +1058,29 @@ class ListType(Expression):
 class RecordType(Expression):
     fields: [(str, Expression)]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     @property
     def fields_dict(self):
         return dict(self.fields)
 
-    def _normalized(self, ctx):
-        return RecordType([
-            (name, expression.normalized(ctx))
-            for name, expression in self.fields
-        ])
-
     def map(self, f):
-        return RecordType([
-            (name, f(expression))
-            for name, expression in self.fields
-        ])
+        return attr.evolve(
+            self,
+            fields=[
+                (name, f(expression))
+                for name, expression in self.fields
+            ],
+        )
 
     def _type(self, type_ctx):
         if not self.fields:
             return TypeBuiltin(), CTX_EMPTY
         field_types = []
         for name, expression in self.fields:
+            expression = expression.pass_context(self)
             typ = expression.normalized_type(type_ctx)
             if typ == SortBuiltin() and not exact(expression, KindBuiltin()):
                 raise TypeError("expected `Kind` in a record type field, but got {}".format(
@@ -958,6 +1098,9 @@ class RecordType(Expression):
 class UnionType(Expression):
     alternatives: [(str, Expression)]
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
 
     @property
     def alternatives_dict(self):
@@ -968,11 +1111,11 @@ class UnionType(Expression):
             raise TypeError('fields of union type must be unique')
         if len(self.alternatives) == 0:
             return TypeBuiltin(), CTX_EMPTY
-        typ = self.alternatives[0][1].substitute_many(self.context).normalized_type(type_ctx)
+        typ = self.alternatives[0][1].pass_context(self).normalized_type(type_ctx)
         if typ not in (TypeBuiltin(), KindBuiltin(), SortBuiltin()):
             raise TypeError('only Types, Kind and Sorts are allowed for union type alternatives')
         for a in self.alternatives[1:]:
-            alternative_typ = a[1].substitute_many(self.context).normalized_type(type_ctx)
+            alternative_typ = a[1].pass_context(self).normalized_type(type_ctx)
             if typ != alternative_typ:
                 raise TypeError('all fields on union type must have the same type')
         return typ, CTX_EMPTY
@@ -998,3 +1141,6 @@ class UnionType(Expression):
 class OptionalType(Expression):
     wrapped: Expression
     context: ShadowDict = CTX_EMPTY
+    context = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)
+    types: ShadowDict = CTX_EMPTY
+    types = attr.ib(default=CTX_EMPTY, repr=False, cmp=False)

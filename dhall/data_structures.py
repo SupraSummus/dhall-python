@@ -27,6 +27,12 @@ class ShadowDict(Generic[KT, VT]):
     def shadow_single(self, name, value):
         return self.shadow({name: value})
 
+    def unshadow(self, name):
+        new_entries = dict(self.entries)
+        if name in new_entries:
+            new_entries[name] = new_entries[name][:-1]
+        return ShadowDict(new_entries, self.generation + 1)
+
     def join(self, other):
         entries = dict(self.entries)
         for k, vs in other.entries.items():
