@@ -99,7 +99,6 @@ with timeit('making grammar parser'):
 
     abnf_parser = parglare.GLRParser(
         abnf_grammar,
-        start_production=start_symbol,
         ws='',
         actions={
             'dec?': parglare.actions.optional,
