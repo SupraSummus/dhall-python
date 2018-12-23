@@ -20,7 +20,7 @@ class FunctionTypesTestCase(TestCase):
         typ = ast.ForAll(
             '_',
             ast.TypeBuiltin(),
-            ast.ListBuiltin().type()[0],
+            ast.ListBuiltin().type(),
         )
         self.assertEqual(
             expression.normalized_type(),
